@@ -54,7 +54,7 @@
     <item>
      <widget class="QLabel" name="labelBuffer">
       <property name="text">
-       <string>TextLabel</string>
+       <string>Brak buforu</string>
       </property>
      </widget>
     </item>
@@ -113,7 +113,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>3</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tab_10">
        <attribute name="title">
@@ -358,6 +358,23 @@ p, li { white-space: pre-wrap; }
           </widget>
          </item>
          <item>
+          <widget class="QLabel" name="label_13">
+           <property name="text">
+            <string>Wybierz ścieżkę do pobranych danych BDOT</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QgsFileWidget" name="bdot_path"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb_act_bdot">
+           <property name="text">
+            <string>Aktualizuj dane BDOT</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <spacer name="verticalSpacer_2">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -563,6 +580,49 @@ p, li { white-space: pre-wrap; }
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Dane zaimportowane zostaną do wybranej paczki projektu (sekcja ustawienia) w zakresie w zależności od wybranego obszaru lub buforu.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+        <widget class="QWidget" name="tab_2">
+         <attribute name="title">
+          <string>Dane BDOT</string>
+         </attribute>
+         <widget class="QWidget" name="verticalLayoutWidget_8">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>491</width>
+            <height>471</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_10">
+           <item>
+            <widget class="QTableWidget" name="tableWidget"/>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButton">
+             <property name="text">
+              <string>PushButton</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_18">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser_12"/>
            </item>
           </layout>
          </widget>
@@ -1021,33 +1081,6 @@ p, li { white-space: pre-wrap; }
           <layout class="QVBoxLayout" name="verticalLayout_6">
            <item>
             <widget class="QLabel" name="label_9">
-             <property name="text">
-              <string>WORK IN PROGRESS</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </widget>
-        <widget class="QWidget" name="tab_20">
-         <attribute name="title">
-          <string>Importuj BDOT</string>
-         </attribute>
-         <widget class="QWidget" name="verticalLayoutWidget_15">
-          <property name="geometry">
-           <rect>
-            <x>0</x>
-            <y>0</y>
-            <width>491</width>
-            <height>471</height>
-           </rect>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_17">
-           <item>
-            <widget class="QLabel" name="label_12">
              <property name="text">
               <string>WORK IN PROGRESS</string>
              </property>

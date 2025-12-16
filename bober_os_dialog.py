@@ -681,597 +681,188 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.tbConsole.append("Operacja zakończona.\n")
             QtWidgets.QApplication.processEvents()
 
-
-    def import_filtered_layers(self, layers_config: dict):
-        target_layer = self.layer_area_2180()
-        if not target_layer:
-            self.tbConsole.append("Nie wybrano warstwy referencyjnej (layer_area).")
-            return
-
+    def _build_filter_geometry(self) -> QgsGeometry | None:
+        target = self.layer_area_2180()
+        if not target or target.featureCount() == 0:
+            return None
 
         buffer_value = self.sbBufferValue.value()
-        if buffer_value > 0:
-            buffer_layer = QgsVectorLayer(f"Polygon?crs={target_layer.crs().authid()}", "buffer", "memory")
-            buffer_provider = buffer_layer.dataProvider()
-            buffer_provider.addAttributes(target_layer.fields())
-            buffer_layer.updateFields()
+        geoms: list[QgsGeometry] = []
 
-            feats = []
-            for f in target_layer.getFeatures():
-                geom = f.geometry()
-                if geom:
-                    buffered = geom.buffer(buffer_value, 5)
-                    new_feat = QgsFeature(buffer_layer.fields())
-                    new_feat.setGeometry(buffered)
-                    feats.append(new_feat)
-            buffer_provider.addFeatures(feats)
-            buffer_layer.updateExtents()
-            filter_geom = buffer_layer
-        else:
-            filter_geom = target_layer
+        for f in target.getFeatures():
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+            if buffer_value > 0:
+                g = g.buffer(buffer_value, 5)
+            geoms.append(g)
 
-        if filter_geom.featureCount() == 0:
-            self.tbConsole.append("Brak funkcji w layer_area lub jego buforze. Import przerwany.")
-            QtWidgets.QApplication.processEvents()
+        if not geoms:
+            return None
+
+        return QgsGeometry.unaryUnion(geoms)
+
+    def _list_gpkg_layers(self, gpkg_path: str) -> set[str]:
+        if not os.path.exists(gpkg_path):
+            return set()
+
+        import sqlite3
+        with sqlite3.connect(gpkg_path) as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT table_name FROM gpkg_contents")
+            return {row[0] for row in cur.fetchall()}
+
+    def _import_layers(
+        self,
+        source_files: list[str],
+        target_gpkg: str,
+        layer_suffix: str,
+    ):
+        filter_geom = self._build_filter_geometry()
+        if not filter_geom:
+            self.tbConsole.append("Brak geometrii filtrującej.")
             return
 
-        project_gpkg = self.project_path.filePath()
-        if not project_gpkg:
-            self.tbConsole.append("Nie ustawiono ścieżki do paczki projektu (project_path).")
-            QtWidgets.QApplication.processEvents()
+        bbox = filter_geom.boundingBox()
+        engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
+        engine.prepareGeometry()
+
+        existing_layers = self._list_gpkg_layers(target_gpkg)
+
+        total = len(source_files)
+        if total == 0:
+            self.tbConsole.append("Brak plików do importu.")
             return
 
+        self.progressBar.setValue(0)
+
+        for i, path in enumerate(source_files, start=1):
+            base = os.path.basename(path)
+            layer_name = os.path.splitext(base)[0] + layer_suffix
+
+            if layer_name in existing_layers:
+                self.tbConsole.append(f"Pominięto (istnieje): {layer_name}")
+                continue
+
+            layer = QgsVectorLayer(path, "src", "ogr")
+            if not layer.isValid():
+                self.tbConsole.append(f"Błąd wczytania: {base}")
+                continue
+
+            request = QgsFeatureRequest()
+            request.setFilterRect(bbox)
+
+            # ---- PASS 1: find matching features (NO writer yet) ----
+            matching_features: list[QgsFeature] = []
+
+            for f in layer.getFeatures(request):
+                g = f.geometry()
+                if g and engine.intersects(g.constGet()):
+                    matching_features.append(f)
+
+            if not matching_features:
+                self.tbConsole.append(f"Pominięto (brak przecięć): {layer_name}. \n")
+                continue  # ← NOTHING is written, layer NOT created
+
+            # ---- PASS 2: create layer & write ----
+            options = QgsVectorFileWriter.SaveVectorOptions()
+            options.driverName = "GPKG"
+            options.layerName = layer_name
+            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+            options.encoding = "UTF-8"
+
+            writer = QgsVectorFileWriter.create(
+                target_gpkg,
+                layer.fields(),
+                layer.wkbType(),
+                layer.crs(),
+                QgsProject.instance().transformContext(),
+                options
+            )
+
+            for f in matching_features:
+                writer.addFeature(f)
+
+            del writer  # flush to disk
+
+            self.tbConsole.append(
+                f"Dodano {len(matching_features)} obiektów → {layer_name}"
+            )
+
+            if i % 3 == 0:
+                self.progressBar.setValue(int(i / total * 100))
+                QtWidgets.QApplication.processEvents()
+
+        self.progressBar.setValue(100)
+        self.tbConsole.append("Import zakończony.\n")
+
+
+    def import_filtered_layers(self, layers_config: dict):
         resource_base = self.resource_path.filePath()
-        if not resource_base:
-            self.tbConsole.append("Nie ustawiono ścieżki zasobu (resource_path).")
-            QtWidgets.QApplication.processEvents()
-            return
+        project_gpkg = self.project_path.filePath()
 
-        date_suffix = datetime.now().strftime("%Y_%m_%d")
+        date = datetime.now().strftime("_%Y_%m_%d")
+        buffer = self.sbBufferValue.value()
+        suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
+
+        files: list[str] = []
 
         for src, subfolders in layers_config.items():
             if src.lower().endswith(".gpkg"):
-                src_path = os.path.join(resource_base, *subfolders, src)
-                src_layers = [src_path]
+                files.append(os.path.join(resource_base, *subfolders, src))
             else:
-                folder_path = os.path.join(resource_base, *subfolders)
-                if not os.path.exists(folder_path):
-                    self.tbConsole.append(f"Folder nie istnieje: {folder_path}")
-                    QtWidgets.QApplication.processEvents()
+                folder = os.path.join(resource_base, *subfolders)
+                if not os.path.exists(folder):
                     continue
-                src_layers = [os.path.join(folder_path, f) for f in os.listdir(folder_path)
-                              if f.lower().endswith((".gpkg", ".shp"))]
-
-            total = len(src_layers)
-            for idx, path in enumerate(src_layers):
-                base = os.path.basename(path)
-
-                layer_name = os.path.splitext(base)[0]
-                if buffer_value > 0:
-                    layer_name += f"_bufor{buffer_value}"
-                layer_name += f"_{date_suffix}"
-
-                existing_layers = []
-                if os.path.exists(project_gpkg):
-                    try:
-                        import fiona
-                        with fiona.open(project_gpkg, layer=None) as src_file:
-                            existing_layers = src_file.listlayers()
-                    except Exception:
-                        existing_layers = []
-                if layer_name in existing_layers:
-                    self.tbConsole.append(f"Pominięto {layer_name} - warstwa już istnieje w {project_gpkg}")
-                    QtWidgets.QApplication.processEvents()
-                    continue
-
-                self.tbConsole.append(f"Przetwarzanie: {base}")
-                QtWidgets.QApplication.processEvents()
-
-                layer = QgsVectorLayer(path, "input", "ogr")
-                if not layer.isValid():
-                    self.tbConsole.append(f"Nie można wczytać warstwy: {base}")
-                    QtWidgets.QApplication.processEvents()
-                    continue
-                mem_layer = QgsVectorLayer(f"{QgsWkbTypes.displayString(layer.wkbType())}?crs={layer.crs().authid()}",
-                                           layer_name, "memory")
-                mem_provider = mem_layer.dataProvider()
-                mem_provider.addAttributes(layer.fields())
-                mem_layer.updateFields()
-
-                feats_to_add = []
-                for f in layer.getFeatures():
-                    geom = f.geometry()
-                    if geom:
-                        for filter_feat in filter_geom.getFeatures():
-                            if filter_feat.geometry() and geom.intersects(filter_feat.geometry()):
-                                new_feat = QgsFeature(mem_layer.fields())
-                                for field in layer.fields().names():
-                                    new_feat[field] = f[field]
-                                new_feat.setGeometry(geom)
-                                feats_to_add.append(new_feat)
-                                break
-
-                if not feats_to_add:
-                    self.tbConsole.append(f"Pominięto {layer_name} - brak funkcji po przefiltrowaniu")
-                    QtWidgets.QApplication.processEvents()
-                    continue
-
-                mem_provider.addFeatures(feats_to_add)
-                mem_layer.updateExtents()
-
-                options = QgsVectorFileWriter.SaveVectorOptions()
-                options.driverName = "GPKG"
-                options.layerName = layer_name
-                options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
-                options.encoding = "UTF-8"
-
-                error = QgsVectorFileWriter.writeAsVectorFormatV2(
-                    mem_layer,
-                    project_gpkg,
-                    QgsProject.instance().transformContext(),
-                    options
+                files.extend(
+                    os.path.join(folder, f)
+                    for f in os.listdir(folder)
+                    if f.lower().endswith((".gpkg", ".shp"))
                 )
-                if error[0] == QgsVectorFileWriter.NoError:
-                    self.tbConsole.append(f"Dodano warstwę: {layer_name} do {project_gpkg}")
-                else:
-                    self.tbConsole.append(f"Błąd zapisu: {error}")
-                QtWidgets.QApplication.processEvents()
 
-                pct = int(((idx + 1) / total) * 100)
-                self.progressBar.setValue(pct)
-                QtWidgets.QApplication.processEvents()
-
-            self.tbConsole.append("Operacja zakończona.\n")
-            QtWidgets.QApplication.processEvents()
-
+        self._import_layers(files, project_gpkg, suffix)
 
     def import_all_updated_data(self):
-        target_layer = self.layer_area_2180()
-        if not target_layer:
-            self.tbConsole.append("Nie wybrano warstwy referencyjnej (layer_area).")
-            return
+        base = os.path.join(self.resource_path.filePath(), "DANE_AKTUALIZOWANE")
+        files = [
+            os.path.join(root, f)
+            for root, _, fs in os.walk(base)
+            for f in fs if f.lower().endswith((".gpkg", ".shp"))
+        ]
 
+        date = datetime.now().strftime("_%Y_%m_%d")
+        buffer = self.sbBufferValue.value()
+        suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
-        buffer_value = self.sbBufferValue.value()
-        if buffer_value > 0:
-            buffer_layer = QgsVectorLayer(f"Polygon?crs={target_layer.crs().authid()}", "buffer", "memory")
-            buffer_provider = buffer_layer.dataProvider()
-            buffer_provider.addAttributes(target_layer.fields())
-            buffer_layer.updateFields()
-
-            feats = []
-            for f in target_layer.getFeatures():
-                geom = f.geometry()
-                if geom:
-                    buffered = geom.buffer(buffer_value, 5)
-                    new_feat = QgsFeature(buffer_layer.fields())
-                    new_feat.setGeometry(buffered)
-                    feats.append(new_feat)
-            buffer_provider.addFeatures(feats)
-            buffer_layer.updateExtents()
-            filter_geom = buffer_layer
-        else:
-            filter_geom = target_layer
-
-        if filter_geom.featureCount() == 0:
-            self.tbConsole.append("Brak funkcji w layer_area lub jego buforze. Import przerwany.")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        project_gpkg = self.project_path.filePath()
-        if not project_gpkg:
-            self.tbConsole.append("Brak ustawionego projektu GPKG (project_path).")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        resource_base = self.resource_path.filePath()
-        if not resource_base:
-            self.tbConsole.append("Brak ścieżki zasobu (resource_path).")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        base_folder = os.path.join(resource_base, "DANE_AKTUALIZOWANE")
-        if not os.path.exists(base_folder):
-            self.tbConsole.append(f"Folder {base_folder} nie istnieje.")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        all_layers = []
-        for root, _, files in os.walk(base_folder):
-            for f in files:
-                if f.lower().endswith((".gpkg", ".shp")):
-                    full_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(full_path, resource_base)
-                    all_layers.append(rel_path)
-
-        if not all_layers:
-            self.tbConsole.append("Nie znaleziono żadnych plików do importu.")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        date_suffix = datetime.now().strftime("%Y_%m_%d")
-
-        for idx, rel_path in enumerate(all_layers):
-            full_path = os.path.join(resource_base, rel_path)
-            base = os.path.basename(full_path)
-
-            layer_name = os.path.splitext(base)[0]
-            if buffer_value > 0:
-                layer_name += f"_bufor{buffer_value}"
-            layer_name += f"_{date_suffix}"
-
-            existing_layers = []
-            if os.path.exists(project_gpkg):
-                try:
-                    import fiona
-                    with fiona.open(project_gpkg, layer=None) as src_file:
-                        existing_layers = src_file.listlayers()
-                except Exception:
-                    existing_layers = []
-            if layer_name in existing_layers:
-                self.tbConsole.append(f"Pominięto {layer_name} - warstwa już istnieje w {project_gpkg}")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            self.tbConsole.append(f"Przetwarzanie: {rel_path}")
-            QtWidgets.QApplication.processEvents()
-
-            layer = QgsVectorLayer(full_path, "input", "ogr")
-            if not layer.isValid():
-                self.tbConsole.append(f"Nie można wczytać warstwy: {rel_path}")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            mem_layer = QgsVectorLayer(f"{QgsWkbTypes.displayString(layer.wkbType())}?crs={layer.crs().authid()}",
-                                       layer_name, "memory")
-            mem_provider = mem_layer.dataProvider()
-            mem_provider.addAttributes(layer.fields())
-            mem_layer.updateFields()
-
-            feats_to_add = []
-            for f in layer.getFeatures():
-                geom = f.geometry()
-                if geom:
-                    for filter_feat in filter_geom.getFeatures():
-                        if filter_feat.geometry() and geom.intersects(filter_feat.geometry()):
-                            new_feat = QgsFeature(mem_layer.fields())
-                            for field in layer.fields().names():
-                                new_feat[field] = f[field]
-                            new_feat.setGeometry(geom)
-                            feats_to_add.append(new_feat)
-                            break
-
-            if not feats_to_add:
-                self.tbConsole.append(f"Pominięto {layer_name} - brak funkcji po przefiltrowaniu")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            mem_provider.addFeatures(feats_to_add)
-            mem_layer.updateExtents()
-
-            options = QgsVectorFileWriter.SaveVectorOptions()
-            options.driverName = "GPKG"
-            options.layerName = layer_name
-            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
-            options.encoding = "UTF-8"
-
-            error = QgsVectorFileWriter.writeAsVectorFormatV2(
-                mem_layer,
-                project_gpkg,
-                QgsProject.instance().transformContext(),
-                options
-            )
-            if error[0] == QgsVectorFileWriter.NoError:
-                self.tbConsole.append(f"Dodano warstwę: {layer_name} do {project_gpkg}")
-            else:
-                self.tbConsole.append(f"Błąd zapisu: {error}")
-            QtWidgets.QApplication.processEvents()
-
-            pct = int(((idx + 1) / len(all_layers)) * 100)
-            self.progressBar.setValue(pct)
-            QtWidgets.QApplication.processEvents()
-
-        self.tbConsole.append("Import wszystkich danych zakończony.\n")
-        QtWidgets.QApplication.processEvents()
-        
-    
-    def import_all_powodz_data(self):
-        target_layer = self.layer_area_2180()
-        if not target_layer:
-            self.tbConsole.append("Nie wybrano warstwy referencyjnej (layer_area).")
-            return
-
-
-        buffer_value = self.sbBufferValue.value()
-        if buffer_value > 0:
-            buffer_layer = QgsVectorLayer(f"Polygon?crs={target_layer.crs().authid()}", "buffer", "memory")
-            buffer_provider = buffer_layer.dataProvider()
-            buffer_provider.addAttributes(target_layer.fields())
-            buffer_layer.updateFields()
-
-            feats = []
-            for f in target_layer.getFeatures():
-                geom = f.geometry()
-                if geom:
-                    buffered = geom.buffer(buffer_value, 5)
-                    new_feat = QgsFeature(buffer_layer.fields())
-                    new_feat.setGeometry(buffered)
-                    feats.append(new_feat)
-            buffer_provider.addFeatures(feats)
-            buffer_layer.updateExtents()
-            filter_geom = buffer_layer
-        else:
-            filter_geom = target_layer
-
-        if filter_geom.featureCount() == 0:
-            self.tbConsole.append("Brak funkcji w layer_area lub jego buforze. Import przerwany.")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        project_gpkg = self.project_path.filePath()
-        if not project_gpkg:
-            self.tbConsole.append("Brak ustawionego projektu GPKG (project_path).")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        resource_base = self.resource_path.filePath()
-        if not resource_base:
-            self.tbConsole.append("Brak ścieżki zasobu (resource_path).")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        base_folder = os.path.join(resource_base, "DANE_POWODZ")
-        if not os.path.exists(base_folder):
-            self.tbConsole.append(f"Folder {base_folder} nie istnieje.")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        all_layers = []
-        for root, _, files in os.walk(base_folder):
-            for f in files:
-                if f.lower().endswith((".gpkg", ".shp")):
-                    full_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(full_path, resource_base)
-                    all_layers.append(rel_path)
-
-        if not all_layers:
-            self.tbConsole.append("Nie znaleziono żadnych plików do importu.")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        date_suffix = datetime.now().strftime("%Y_%m_%d")
-
-        for idx, rel_path in enumerate(all_layers):
-            full_path = os.path.join(resource_base, rel_path)
-            base = os.path.basename(full_path)
-
-            layer_name = os.path.splitext(base)[0]
-            if buffer_value > 0:
-                layer_name += f"_bufor{buffer_value}"
-            layer_name += f"_{date_suffix}"
-
-            existing_layers = []
-            if os.path.exists(project_gpkg):
-                try:
-                    import fiona
-                    with fiona.open(project_gpkg, layer=None) as src_file:
-                        existing_layers = src_file.listlayers()
-                except Exception:
-                    existing_layers = []
-            if layer_name in existing_layers:
-                self.tbConsole.append(f"Pominięto {layer_name} - warstwa już istnieje w {project_gpkg}")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            self.tbConsole.append(f"Przetwarzanie: {rel_path}")
-            QtWidgets.QApplication.processEvents()
-
-            layer = QgsVectorLayer(full_path, "input", "ogr")
-            if not layer.isValid():
-                self.tbConsole.append(f"Nie można wczytać warstwy: {rel_path}")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            mem_layer = QgsVectorLayer(f"{QgsWkbTypes.displayString(layer.wkbType())}?crs={layer.crs().authid()}",
-                                       layer_name, "memory")
-            mem_provider = mem_layer.dataProvider()
-            mem_provider.addAttributes(layer.fields())
-            mem_layer.updateFields()
-
-            feats_to_add = []
-            for f in layer.getFeatures():
-                geom = f.geometry()
-                if geom:
-                    for filter_feat in filter_geom.getFeatures():
-                        if filter_feat.geometry() and geom.intersects(filter_feat.geometry()):
-                            new_feat = QgsFeature(mem_layer.fields())
-                            for field in layer.fields().names():
-                                new_feat[field] = f[field]
-                            new_feat.setGeometry(geom)
-                            feats_to_add.append(new_feat)
-                            break
-
-            if not feats_to_add:
-                self.tbConsole.append(f"Pominięto {layer_name} - brak funkcji po przefiltrowaniu")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            mem_provider.addFeatures(feats_to_add)
-            mem_layer.updateExtents()
-
-            options = QgsVectorFileWriter.SaveVectorOptions()
-            options.driverName = "GPKG"
-            options.layerName = layer_name
-            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
-            options.encoding = "UTF-8"
-
-            error = QgsVectorFileWriter.writeAsVectorFormatV2(
-                mem_layer,
-                project_gpkg,
-                QgsProject.instance().transformContext(),
-                options
-            )
-            if error[0] == QgsVectorFileWriter.NoError:
-                self.tbConsole.append(f"Dodano warstwę: {layer_name} do {project_gpkg}")
-            else:
-                self.tbConsole.append(f"Błąd zapisu: {error}")
-            QtWidgets.QApplication.processEvents()
-
-            pct = int(((idx + 1) / len(all_layers)) * 100)
-            self.progressBar.setValue(pct)
-            QtWidgets.QApplication.processEvents()
-
-        self.tbConsole.append("Import wszystkich danych zakończony.\n")
-        QtWidgets.QApplication.processEvents()
-
+        self._import_layers(files, self.project_path.filePath(), suffix)
 
     def import_all_wody_data(self):
-        target_layer = self.layer_area_2180()
-        if not target_layer:
-            self.tbConsole.append("Nie wybrano warstwy referencyjnej (layer_area).")
-            return
+        base = os.path.join(self.resource_path.filePath(), "DANE_PGW_GZWP")
+        files = [
+            os.path.join(root, f)
+            for root, _, fs in os.walk(base)
+            for f in fs if f.lower().endswith((".gpkg", ".shp"))
+        ]
 
+        date = datetime.now().strftime("_%Y_%m_%d")
+        buffer = self.sbBufferValue.value()
+        suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
-        buffer_value = self.sbBufferValue.value()
-        if buffer_value > 0:
-            buffer_layer = QgsVectorLayer(f"Polygon?crs={target_layer.crs().authid()}", "buffer", "memory")
-            buffer_provider = buffer_layer.dataProvider()
-            buffer_provider.addAttributes(target_layer.fields())
-            buffer_layer.updateFields()
+        self._import_layers(files, self.project_path.filePath(), suffix)
 
-            feats = []
-            for f in target_layer.getFeatures():
-                geom = f.geometry()
-                if geom:
-                    buffered = geom.buffer(buffer_value, 5)
-                    new_feat = QgsFeature(buffer_layer.fields())
-                    new_feat.setGeometry(buffered)
-                    feats.append(new_feat)
-            buffer_provider.addFeatures(feats)
-            buffer_layer.updateExtents()
-            filter_geom = buffer_layer
-        else:
-            filter_geom = target_layer
+    def import_all_powodz_data(self):
+        base = os.path.join(self.resource_path.filePath(), "DANE_POWODZ")
+        files = [
+            os.path.join(root, f)
+            for root, _, fs in os.walk(base)
+            for f in fs if f.lower().endswith((".gpkg", ".shp"))
+        ]
 
-        if filter_geom.featureCount() == 0:
-            self.tbConsole.append("Brak funkcji w layer_area lub jego buforze. Import przerwany.")
-            QtWidgets.QApplication.processEvents()
-            return
+        date = datetime.now().strftime("_%Y_%m_%d")
+        buffer = self.sbBufferValue.value()
+        suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
-        project_gpkg = self.project_path.filePath()
-        if not project_gpkg:
-            self.tbConsole.append("Brak ustawionego projektu GPKG (project_path).")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        resource_base = self.resource_path.filePath()
-        if not resource_base:
-            self.tbConsole.append("Brak ścieżki zasobu (resource_path).")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        base_folder = os.path.join(resource_base, "DANE_PGW_GZWP")
-        if not os.path.exists(base_folder):
-            self.tbConsole.append(f"Folder {base_folder} nie istnieje.")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        all_layers = []
-        for root, _, files in os.walk(base_folder):
-            for f in files:
-                if f.lower().endswith((".gpkg", ".shp")):
-                    full_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(full_path, resource_base)
-                    all_layers.append(rel_path)
-
-        if not all_layers:
-            self.tbConsole.append("Nie znaleziono żadnych plików do importu.")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        date_suffix = datetime.now().strftime("%Y_%m_%d")
-
-        for idx, rel_path in enumerate(all_layers):
-            full_path = os.path.join(resource_base, rel_path)
-            base = os.path.basename(full_path)
-
-            layer_name = os.path.splitext(base)[0]
-            if buffer_value > 0:
-                layer_name += f"_bufor{buffer_value}"
-            layer_name += f"_{date_suffix}"
-
-            existing_layers = []
-            if os.path.exists(project_gpkg):
-                try:
-                    import fiona
-                    with fiona.open(project_gpkg, layer=None) as src_file:
-                        existing_layers = src_file.listlayers()
-                except Exception:
-                    existing_layers = []
-            if layer_name in existing_layers:
-                self.tbConsole.append(f"Pominięto {layer_name} - warstwa już istnieje w {project_gpkg}")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            self.tbConsole.append(f"Przetwarzanie: {rel_path}")
-            QtWidgets.QApplication.processEvents()
-
-            layer = QgsVectorLayer(full_path, "input", "ogr")
-            if not layer.isValid():
-                self.tbConsole.append(f"Nie można wczytać warstwy: {rel_path}")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            mem_layer = QgsVectorLayer(f"{QgsWkbTypes.displayString(layer.wkbType())}?crs={layer.crs().authid()}",
-                                       layer_name, "memory")
-            mem_provider = mem_layer.dataProvider()
-            mem_provider.addAttributes(layer.fields())
-            mem_layer.updateFields()
-
-            feats_to_add = []
-            for f in layer.getFeatures():
-                geom = f.geometry()
-                if geom:
-                    for filter_feat in filter_geom.getFeatures():
-                        if filter_feat.geometry() and geom.intersects(filter_feat.geometry()):
-                            new_feat = QgsFeature(mem_layer.fields())
-                            for field in layer.fields().names():
-                                new_feat[field] = f[field]
-                            new_feat.setGeometry(geom)
-                            feats_to_add.append(new_feat)
-                            break
-
-            if not feats_to_add:
-                self.tbConsole.append(f"Pominięto {layer_name} - brak funkcji po przefiltrowaniu")
-                QtWidgets.QApplication.processEvents()
-                continue
-
-            mem_provider.addFeatures(feats_to_add)
-            mem_layer.updateExtents()
-
-            options = QgsVectorFileWriter.SaveVectorOptions()
-            options.driverName = "GPKG"
-            options.layerName = layer_name
-            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
-            options.encoding = "UTF-8"
-
-            error = QgsVectorFileWriter.writeAsVectorFormatV2(
-                mem_layer,
-                project_gpkg,
-                QgsProject.instance().transformContext(),
-                options
-            )
-            if error[0] == QgsVectorFileWriter.NoError:
-                self.tbConsole.append(f"Dodano warstwę: {layer_name} do {project_gpkg}")
-            else:
-                self.tbConsole.append(f"Błąd zapisu: {error}")
-            QtWidgets.QApplication.processEvents()
-
-            pct = int(((idx + 1) / len(all_layers)) * 100)
-            self.progressBar.setValue(pct)
-            QtWidgets.QApplication.processEvents()
-        self.tbConsole.append("Import wszystkich danych zakończony.\n")
-        QtWidgets.QApplication.processEvents()
+        self._import_layers(files, self.project_path.filePath(), suffix)
 
 
     def layout_area_gen(self):
