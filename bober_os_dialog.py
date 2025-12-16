@@ -1606,91 +1606,149 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         QtWidgets.QApplication.processEvents()
 
 
-    def _build_filter_geom(self):
-        target_layer = self.layer_area_2180()
-        if not target_layer:
-            self.tbConsole.append("Nie wybrano warstwy referencyjnej (layer_area).")
-            return
-
+    def _build_filter_geometry(self) -> QgsGeometry | None:
+        layer = self.layer_area_2180()
+        if not layer or layer.featureCount() == 0:
+            return None
 
         buffer_value = self.sbBufferValue.value()
-        if buffer_value > 0:
-            buffer_layer = QgsVectorLayer(f"Polygon?crs={target_layer.crs().authid()}", "buffer", "memory")
-            prov = buffer_layer.dataProvider()
-            prov.addAttributes(target_layer.fields())
-            buffer_layer.updateFields()
+        geoms = []
 
-            feats = []
-            for f in target_layer.getFeatures():
-                g = f.geometry()
-                if g and not g.isEmpty():
-                    new_f = QgsFeature(buffer_layer.fields())
-                    new_f.setGeometry(g.buffer(buffer_value, 5))
-                    feats.append(new_f)
-
-            if feats:
-                prov.addFeatures(feats)
-                buffer_layer.updateExtents()
-
-            return buffer_layer
-        else:
-            return target_layer
-
-
-    def _print_feature_values(self, f, fields):
-        vals = []
-        for fld in fields:
-            v = f.attribute(fld)
-            if v is None:
-                v = ""
-            vals.append(str(v))
-        self.tbConsole.append(" | ".join(vals))
-        QtWidgets.QApplication.processEvents()
-
-
-    def _layer_intersection_report(self, layer, filter_geom, fields):
-        src_crs = layer.crs()
-        tgt_crs = filter_geom.crs()
-        need_transform = src_crs != tgt_crs
-        xform = QgsCoordinateTransform(src_crs, tgt_crs, QgsProject.instance()) if need_transform else None
-
-        count = 0
         for f in layer.getFeatures():
             g = f.geometry()
             if not g or g.isEmpty():
                 continue
-            if need_transform:
-                try:
-                    g.transform(xform)
-                except Exception:
-                    pass
+            if buffer_value > 0:
+                g = g.buffer(buffer_value, 5)
+            geoms.append(g)
 
-            intersects = False
-            for ff in filter_geom.getFeatures():
-                fg = ff.geometry()
-                if fg and g.intersects(fg):
-                    intersects = True
-                    break
+        if not geoms:
+            return None
 
-            if intersects:
+        return QgsGeometry.unaryUnion(geoms)
+
+    def _report_intersections(
+        self,
+        layer: QgsVectorLayer,
+        filter_geom: QgsGeometry,
+        fields: list[str] | None,
+        existence_only: bool = False,
+    ) -> int:
+
+        engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
+        engine.prepareGeometry()
+        bbox = filter_geom.boundingBox()
+
+        request = QgsFeatureRequest()
+        request.setFilterRect(bbox)
+
+        count = 0
+
+        for f in layer.getFeatures(request):
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+
+            if engine.intersects(g.constGet()):
                 count += 1
-                self._print_feature_values(f, fields)
+
+                if existence_only:
+                    return 1
+
+                if fields:
+                    vals = []
+                    for fld in fields:
+                        v = f.attribute(fld)
+                        vals.append("" if v is None else str(v))
+                    self.tbConsole.append(" | ".join(vals))
+                    QtWidgets.QApplication.processEvents()
 
         return count
+
+
+
+    def _analyze_layers(
+        self,
+        layers: dict[str, list[str] | None],
+        title: str,
+    ):
+        self.tbConsole.append(f"\n--- {title} ---")
+
+        filter_geom = self._build_filter_geometry()
+        if not filter_geom:
+            self.tbConsole.append("Brak geometrii filtrującej.\n")
+            return
+
+        bbox = filter_geom.boundingBox()
+        engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
+        engine.prepareGeometry()
+
+        resource_base = self.resource_path.filePath()
+        if not resource_base:
+            self.tbConsole.append("Brak resource_path.\n")
+            return
+
+        for rel_path, fields in layers.items():
+            abs_path = os.path.join(resource_base, rel_path)
+
+            self.tbConsole.append(f"\nWarstwa: {rel_path}")
+
+            if not os.path.exists(abs_path):
+                self.tbConsole.append("Plik nie istnieje.")
+                continue
+
+            layer = QgsVectorLayer(abs_path, "src", "ogr")
+            if not layer.isValid():
+                self.tbConsole.append("Nie można wczytać warstwy.")
+                continue
+
+            request = QgsFeatureRequest()
+            request.setFilterRect(bbox)
+
+            found = 0
+            values: dict[str, set] = {}
+
+            for f in layer.getFeatures(request):
+                g = f.geometry()
+                if not g or not engine.intersects(g.constGet()):
+                    continue
+
+                found += 1
+
+                if fields:
+                    for fld in fields:
+                        val = f[fld]
+                        if val is not None:
+                            values.setdefault(fld, set()).add(val)
+
+            if found == 0:
+                self.tbConsole.append("Brak przecięć.")
+                continue
+
+            self.tbConsole.append(f"Liczba przecięć: {found}")
+
+            if fields:
+                for fld, vals in values.items():
+                    if vals:
+                        joined = ", ".join(str(v) for v in sorted(vals))
+                        self.tbConsole.append(f"    {fld}: {joined}")
+                    else:
+                        self.tbConsole.append(f"    {fld}: brak wartości")
+
+        self.tbConsole.append(f"--- Koniec analizy: {title} ---\n")
+
+
 
     def anal_fop(self):
         self.tbConsole.append("Analiza FOP - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geom()
-        if not filter_geom or filter_geom.featureCount() == 0:
+        filter_geom = self._build_filter_geometry()
+        if not filter_geom:
             self.tbConsole.append("Brak funkcji w layer_area lub buforze.")
             return
 
-        base = self.resource_path.filePath()
-        if not base:
-            self.tbConsole.append("Brak resource_path.")
-            return
+        resource_base = self.resource_path.filePath()
 
         layers = {
             "DANE_AKTUALIZOWANE/FOP/FOP_ObszaryChronionegoKrajobrazu.gpkg": ["nazwa"],
@@ -1698,89 +1756,67 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             "DANE_AKTUALIZOWANE/FOP/FOP_ParkiKrajobrazowe.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_ParkiNarodowe.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_Rezerwaty.gpkg": ["nazwa"],
-            "DANE_AKTUALIZOWANE/FOP/FOP_SpecjalneObszaryOchrony.gpkg": ["kod", "nazwa"],
-            "DANE_AKTUALIZOWANE/FOP/FOP_StanowiskaDokumentacyjne.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_UzytkiEkologiczne.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_ZespolyPrzyrodniczoKrajobrazowe.gpkg": ["nazwa"],
+            "DANE_AKTUALIZOWANE/FOP/FOP_StanowiskaDokumentacyjne.gpkg": ["nazwa"],
         }
 
-        total = len(layers)
-        for i, (rel, fields) in enumerate(layers.items(), start=1):
-            path = os.path.join(base, rel)
-            name = os.path.basename(path)
-            if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: brak pliku.")
+        bbox = filter_geom.boundingBox()
+        engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
+        engine.prepareGeometry()
+
+        for rel_path, fields in layers.items():
+            abs_path = os.path.join(resource_base, rel_path)
+            self.tbConsole.append(f"\nWarstwa: {rel_path}")
+
+            if not os.path.exists(abs_path):
+                self.tbConsole.append("Plik nie istnieje.")
                 continue
 
-            layer = QgsVectorLayer(path, name, "ogr")
+            layer = QgsVectorLayer(abs_path, "src", "ogr")
             if not layer.isValid():
-                self.tbConsole.append(f"{name}: nie można wczytać.")
+                self.tbConsole.append("Nie można wczytać warstwy.")
                 continue
 
-            self.tbConsole.append(f"{name}:")
-            count = self._layer_intersection_report(layer, filter_geom, fields)
-            self.tbConsole.append(f"Liczba: {count}\n")
+            request = QgsFeatureRequest().setFilterRect(bbox)
 
-            self.progressBar.setValue(int(i / total * 100))
-            QtWidgets.QApplication.processEvents()
+            matches = []
+            for f in layer.getFeatures(request):
+                g = f.geometry()
+                if g and engine.intersects(g.constGet()):
+                    matches.append(f)
 
-        self.tbConsole.append("Analiza FOP zakończona.\n")
-
-
-    def anal_pig(self):
-        self.tbConsole.append("Analiza PIG - start")
-        QtWidgets.QApplication.processEvents()
-
-        filter_geom = self._build_filter_geom()
-        if not filter_geom or filter_geom.featureCount() == 0:
-            self.tbConsole.append("Brak funkcji w layer_area.")
-            return
-
-        base = self.resource_path.filePath()
-        if not base:
-            self.tbConsole.append("Brak resource_path.")
-            return
-
-        layers = {
-            "DANE_AKTUALIZOWANE/PIG/PIG_ObszaryGornicze.gpkg": ["NAZWA_OG"],
-            "DANE_AKTUALIZOWANE/PIG/PIG_TerenyGornicze.gpkg": ["NAZWA_TG"],
-            "DANE_AKTUALIZOWANE/PIG/PIG_UdokumentowaneZloza.gpkg": ["SYMBOL_KOP", "NR_ZLOZA", "NAZWA_ZL"],
-        }
-
-        total = len(layers)
-        for i, (rel, fields) in enumerate(layers.items(), start=1):
-            path = os.path.join(base, rel)
-            name = os.path.basename(path)
-
-            if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: brak pliku.")
+            count = len(matches)
+            if count == 0:
+                self.tbConsole.append("Brak przecięć.")
                 continue
 
-            layer = QgsVectorLayer(path, name, "ogr")
-            if not layer.isValid():
-                self.tbConsole.append(f"{name}: nie można wczytać.")
+            self.tbConsole.append(f"Liczba przecięć: {count}")
+
+            is_uzytki = rel_path.endswith("FOP_UzytkiEkologiczne.gpkg")
+
+            if is_uzytki and count > 10:
+                self.tbConsole.append("    > 10 obiektów – pominięto listę nazw.")
                 continue
 
-            self.tbConsole.append(f"{name}:")
-            count = self._layer_intersection_report(layer, filter_geom, fields)
-            self.tbConsole.append(f"Liczba: {count}\n")
+            for f in matches:
+                vals = [str(f[fld]) for fld in fields if f[fld] is not None]
+                if vals:
+                    self.tbConsole.append(" | ".join(vals))
 
-            self.progressBar.setValue(int(i / total * 100))
+        self.tbConsole.append("Analiza FOP - koniec\n")
 
-        self.tbConsole.append("Analiza PIG zakończona.\n")
+
 
     def anal_adm(self):
         self.tbConsole.append("Analiza ADMINISTRACYJNE - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geom()
+        filter_geom = self._build_filter_geometry()
         base = self.resource_path.filePath()
 
         if not filter_geom:
             self.tbConsole.append("Brak layer_area.")
-            return
-        if not base:
-            self.tbConsole.append("Brak resource_path.")
             return
 
         layers = {
@@ -1797,16 +1833,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         }
 
         total = len(layers)
-        for i, (rel, fields) in enumerate(layers.items(), start=1):
+        for i, (rel, fields) in enumerate(layers.items(), 1):
             path = os.path.join(base, rel)
             name = os.path.basename(path)
 
             if fields is None:
-                if os.path.exists(path):
-                    self.tbConsole.append(f"{name}: istnieje.")
-                else:
-                    self.tbConsole.append(f"{name}: NIE istnieje.")
-                self.progressBar.setValue(int(i/total*100))
+                self.tbConsole.append(
+                    f"{name}: {'istnieje' if os.path.exists(path) else 'NIE istnieje'}."
+                )
+                self.progressBar.setValue(int(i / total * 100))
                 continue
 
             if not os.path.exists(path):
@@ -1814,30 +1849,59 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 continue
 
             layer = QgsVectorLayer(path, name, "ogr")
-            if not layer.isValid():
-                self.tbConsole.append(f"{name}: nie można wczytać.")
-                continue
-
             self.tbConsole.append(f"{name}:")
-            count = self._layer_intersection_report(layer, filter_geom, fields)
+            count = self._report_intersections(layer, filter_geom, fields)
             self.tbConsole.append(f"Liczba: {count}\n")
 
-            self.progressBar.setValue(int(i/total*100))
+            self.progressBar.setValue(int(i / total * 100))
 
         self.tbConsole.append("Analiza ADMINISTRACYJNE zakończona.\n")
 
- 
-    def anal_wody(self):
-        self.tbConsole.append("Analiza WODY_GZWP - start")
+
+    def anal_pig(self):
+        self.tbConsole.append("Analiza PIG - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geom()
-        base = self.resource_path.filePath()
-
-        if not filter_geom or filter_geom.featureCount() == 0:
-            self.tbConsole.append("Brak layer_area.")
+        filter_geom = self._build_filter_geometry()
+        if not filter_geom:
+            self.tbConsole.append("Brak funkcji w layer_area.")
             return
 
+        base = self.resource_path.filePath()
+        layers = {
+            "DANE_AKTUALIZOWANE/PIG/PIG_ObszaryGornicze.gpkg": ["NAZWA_OG"],
+            "DANE_AKTUALIZOWANE/PIG/PIG_TerenyGornicze.gpkg": ["NAZWA_TG"],
+            "DANE_AKTUALIZOWANE/PIG/PIG_UdokumentowaneZloza.gpkg": ["SYMBOL_KOP", "NR_ZLOZA", "NAZWA_ZL"],
+        }
+
+        total = len(layers)
+        for i, (rel, fields) in enumerate(layers.items(), 1):
+            path = os.path.join(base, rel)
+            name = os.path.basename(path)
+
+            if not os.path.exists(path):
+                self.tbConsole.append(f"{name}: brak pliku.")
+                continue
+
+            layer = QgsVectorLayer(path, name, "ogr")
+            self.tbConsole.append(f"{name}:")
+            count = self._report_intersections(layer, filter_geom, fields)
+            self.tbConsole.append(f"Liczba: {count}\n")
+
+            self.progressBar.setValue(int(i / total * 100))
+
+        self.tbConsole.append("Analiza PIG zakończona.\n")
+
+    def anal_wody(self):
+        self.tbConsole.append("Analiza WODY - start")
+        QtWidgets.QApplication.processEvents()
+
+        filter_geom = self._build_filter_geometry()
+        if not filter_geom:
+            self.tbConsole.append("Brak funkcji w layer_area.")
+            return
+
+        base = self.resource_path.filePath()
         layers = {
             "DANE_PGW_GZWP/WODY_GZWP.gpkg": ["NR_GZWP", "NAZWA"],
             "DANE_PGW_GZWP/WODY_JCWP_pozostale.gpkg": ["MS_KOD", "Nazwa_JCWP"],
@@ -1850,7 +1914,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         }
 
         total = len(layers)
-        for i, (rel, fields) in enumerate(layers.items(), start=1):
+        for i, (rel, fields) in enumerate(layers.items(), 1):
             path = os.path.join(base, rel)
             name = os.path.basename(path)
 
@@ -1859,97 +1923,50 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 continue
 
             layer = QgsVectorLayer(path, name, "ogr")
-            if not layer.isValid():
-                self.tbConsole.append(f"{name}: nie można wczytać.")
-                continue
-
             self.tbConsole.append(f"{name}:")
-            count = self._layer_intersection_report(layer, filter_geom, fields)
-            self.tbConsole.append(f"Liczba obiektów: {count}\n")
+            count = self._report_intersections(layer, filter_geom, fields)
+            self.tbConsole.append(f"Liczba: {count}\n")
 
-            self.progressBar.setValue(int(i/total*100))
+            self.progressBar.setValue(int(i / total * 100))
 
-        self.tbConsole.append("Analiza WODY_GZWP zakończona.\n")
+        self.tbConsole.append("Analiza WODY zakończona.\n")
 
 
     def anal_powodz(self):
         self.tbConsole.append("Analiza POWODZ - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geom()
-        base = self.resource_path.filePath()
-        if not base:
-            self.tbConsole.append("Brak resource_path.")
+        filter_geom = self._build_filter_geometry()
+        if not filter_geom:
+            self.tbConsole.append("Brak funkcji w layer_area.")
             return
 
-        layers = [
-            "DANE_POWODZ/POWODZ_morze_100.gpkg",
-            "DANE_POWODZ/POWODZ_morze_500.gpkg",
-            "DANE_POWODZ/POWODZ_morze_WZ.gpkg",
-            "DANE_POWODZ/POWODZ_rzeka_10.gpkg",
-            "DANE_POWODZ/POWODZ_rzeka_100.gpkg",
-            "DANE_POWODZ/POWODZ_rzeka_500.gpkg",
-            "DANE_POWODZ/POWODZ_rzeka_WZ.gpkg",
-        ]
+        base = self.resource_path.filePath()
+        layers = {
+            "DANE_POWODZ/POWODZ_rzeka_10.gpkg": None,
+            "DANE_POWODZ/POWODZ_rzeka_100.gpkg": None,
+            "DANE_POWODZ/POWODZ_rzeka_500.gpkg": None,
+            "DANE_POWODZ/POWODZ_rzeka_WZ.gpkg": None,
+            "DANE_POWODZ/POWODZ_morze_100.gpkg": None,
+            "DANE_POWODZ/POWODZ_morze_500.gpkg": None,
+            "DANE_POWODZ/POWODZ_morze_WZ.gpkg": None,
+        }
 
         total = len(layers)
-        for i, rel in enumerate(layers, start=1):
+        for i, (rel, fields) in enumerate(layers.items(), 1):
             path = os.path.join(base, rel)
             name = os.path.basename(path)
 
             if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: NIE istnieje.")
-                self.progressBar.setValue(int(i/total*100))
+                self.tbConsole.append(f"{name}: brak pliku.")
                 continue
 
             layer = QgsVectorLayer(path, name, "ogr")
-            if not layer.isValid():
-                self.tbConsole.append(f"{name}: nie można wczytać.")
-                self.progressBar.setValue(int(i/total*100))
-                continue
+            self.tbConsole.append(f"{name}:")
+            count = self._report_intersections(layer, filter_geom, fields)
+            self.tbConsole.append(f"Liczba: {count}\n")
 
-            if not filter_geom:
-                self.tbConsole.append(f"{name}: istnieje.")
-                self.progressBar.setValue(int(i/total*100))
-                continue
-
-            src_crs = layer.crs()
-            tgt_crs = filter_geom.crs()
-            need_transform = src_crs != tgt_crs
-            if need_transform:
-                xform = QgsCoordinateTransform(src_crs, tgt_crs, QgsProject.instance())
-            else:
-                xform = None
-
-            found = False
-
-            for f in layer.getFeatures():
-                g = f.geometry()
-                if not g or g.isEmpty():
-                    continue
-
-                if need_transform:
-                    try:
-                        g.transform(xform)
-                    except Exception:
-                        pass
-
-                for ff in filter_geom.getFeatures():
-                    fg = ff.geometry()
-                    if fg and g.intersects(fg):
-                        found = True
-                        break
-
-                if found:
-                    break
-
-            if found:
-                self.tbConsole.append(f"{name}: istnieje")
-            else:
-                self.tbConsole.append(f"{name}: brak")
-
-            self.progressBar.setValue(int(i/total*100))
-            QtWidgets.QApplication.processEvents()
+            self.progressBar.setValue(int(i / total * 100))
 
         self.tbConsole.append("Analiza POWODZ zakończona.\n")
 
@@ -1958,12 +1975,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Analiza INNE - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geom()
-        base = self.resource_path.filePath()
-
-        if not filter_geom or filter_geom.featureCount() == 0:
-            self.tbConsole.append("Brak layer_area.")
+        filter_geom = self._build_filter_geometry()
+        if not filter_geom:
+            self.tbConsole.append("Brak funkcji w layer_area lub buforze.")
             return
+
+        resource_base = self.resource_path.filePath()
 
         layers = {
             "DANE_INNE/INNE_Mezoregiony.gpkg": ["k_MEZO", "n_MEZO"],
@@ -1974,82 +1991,65 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             "DANE_INNE/INNE_Wos_1999_regiony_klimatyczne.gpkg": ["numer", "nazwa"],
         }
 
-        total = len(layers)
-        for i, (rel, fields) in enumerate(layers.items(), start=1):
-            path = os.path.join(base, rel)
-            name = os.path.basename(path)
+        bbox = filter_geom.boundingBox()
+        engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
+        engine.prepareGeometry()
 
-            if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: brak pliku.")
-                self.progressBar.setValue(int(i/total*100))
+        for rel_path, fields in layers.items():
+            abs_path = os.path.join(resource_base, rel_path)
+            self.tbConsole.append(f"\nWarstwa: {rel_path}")
+
+            if not os.path.exists(abs_path):
+                self.tbConsole.append("Plik nie istnieje.")
                 continue
 
-            layer = QgsVectorLayer(path, name, "ogr")
+            layer = QgsVectorLayer(abs_path, "src", "ogr")
             if not layer.isValid():
-                self.tbConsole.append(f"{name}: nie można wczytać.")
-                self.progressBar.setValue(int(i/total*100))
+                self.tbConsole.append("Nie można wczytać warstwy.")
                 continue
 
-            if fields is None:
-                count = layer.featureCount()
-                self.tbConsole.append(f"{name}: istnieje, liczba obiektów: {count}")
-                self.progressBar.setValue(int(i/total*100))
-                continue
-
-            src_crs = layer.crs()
-            tgt_crs = filter_geom.crs()
-            need_transform = src_crs != tgt_crs
-            if need_transform:
-                xform = QgsCoordinateTransform(src_crs, tgt_crs, QgsProject.instance())
-            else:
-                xform = None
-
-            unique_mode = ("Potencjalna_roslinnosc_naturalna" in name)
-            unique_set = set()
+            field_names = set(layer.fields().names())
+            request = QgsFeatureRequest().setFilterRect(bbox)
 
             count = 0
-            self.tbConsole.append(f"{name}:")
+            is_roslinnosc = rel_path.endswith("INNE_Potencjalna_roslinnosc_naturalna.gpkg")
+            unique_rows = set()
 
-            for f in layer.getFeatures():
+            for f in layer.getFeatures(request):
                 g = f.geometry()
-                if not g or g.isEmpty():
+                if not g or not engine.intersects(g.constGet()):
                     continue
 
-                if need_transform:
-                    try:
-                        g.transform(xform)
-                    except Exception:
-                        pass
+                count += 1
 
-                intersects = False
-                for ff in filter_geom.getFeatures():
-                    fg = ff.geometry()
-                    if fg and g.intersects(fg):
-                        intersects = True
+                if not fields:
+                    continue
+
+                values = []
+                for fld in fields:
+                    if fld not in field_names:
+                        values = []
                         break
+                    val = f.attribute(fld)
+                    values.append("" if val is None else str(val))
 
-                if intersects:
-                    count += 1
+                if not values:
+                    continue
 
-                    if unique_mode:
-                        tup = tuple(f.attribute(fld) for fld in fields)
-                        unique_set.add(tup)
-                    else:
-                        vals = []
-                        for fld in fields:
-                            v = f.attribute(fld)
-                            vals.append("" if v is None else str(v))
-                        self.tbConsole.append(" | ".join(vals))
-                        QtWidgets.QApplication.processEvents()
+                if is_roslinnosc:
+                    unique_rows.add(tuple(values))
+                else:
+                    self.tbConsole.append(" | ".join(values))
 
-            if unique_mode:
-                for tup in unique_set:
-                    line = " | ".join("" if v is None else str(v) for v in tup)
-                    self.tbConsole.append(line)
-                    QtWidgets.QApplication.processEvents()
+            if count == 0:
+                self.tbConsole.append("Brak przecięć.")
+                continue
 
-            self.tbConsole.append(f"Liczba obiektów: {count}\n")
-            self.progressBar.setValue(int(i/total*100))
+            self.tbConsole.append(f"Liczba przecięć: {count}")
+
+            if is_roslinnosc and unique_rows:
+                for row in sorted(unique_rows):
+                    self.tbConsole.append(" | ".join(row))
 
         self.tbConsole.append("Analiza INNE zakończona.\n")
 
