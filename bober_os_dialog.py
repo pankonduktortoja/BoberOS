@@ -163,10 +163,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_gpkg_rename_layers.clicked.connect(self.rename_selected_layer)
         self.pb_gpkg_vacuum_layers.clicked.connect(self.vacuum_gpkg)
        
-        
-        
-        
-
   
     def save_setting(self, key: str, value: str):
         settings = QSettings()
@@ -195,9 +191,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.labelLayerArea.setText(f"Wybrana warstwa: {layer.name()}")
         else:
             self.labelLayerArea.setText("Brak wybranej warstwy")
-            
     
-
     def _init_ui_color_customization(self):
         self._ui_color_settings_key = "bober_os/settings/ui_bg_color"
         self._ui_color_default = "rgb(231, 255, 241)"
@@ -208,7 +202,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.pbUiColor.clicked.connect(self._open_ui_color_slider)
 
-
     def _apply_ui_bg_color(self, color_str: str):
         self.setStyleSheet(
             self._base_stylesheet +
@@ -218,7 +211,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             }}
             """
         )
-
 
     def _open_ui_color_slider(self):
         dlg = QColorDialog(self)
@@ -241,8 +233,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if hasattr(self, "tbConsole"):
             self.tbConsole.append(f"Ustawiono kolor tła: {color_str}")
 
-    
-    
     def layer_area_2180(self) -> QgsVectorLayer | None:
         src_layer = self.layer_area.currentLayer()
         if not src_layer:
@@ -295,9 +285,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         return mem_layer
 
-    
-    
-    
     def runClearConsole(self):
         self.tbConsole.setText("")
         self.progressBar.reset()   
@@ -682,14 +669,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             QtWidgets.QApplication.processEvents()
 
     def _build_filter_geometry(self) -> QgsGeometry | None:
-        target = self.layer_area_2180()
-        if not target or target.featureCount() == 0:
+        layer = self.layer_area_2180()
+        if not layer or layer.featureCount() == 0:
             return None
 
         buffer_value = self.sbBufferValue.value()
-        geoms: list[QgsGeometry] = []
+        geoms = []
 
-        for f in target.getFeatures():
+        for f in layer.getFeatures():
             g = f.geometry()
             if not g or g.isEmpty():
                 continue
@@ -716,8 +703,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self,
         source_files: list[str],
         target_gpkg: str,
-        layer_suffix: str,
-    ):
+        layer_suffix: str,):
         filter_geom = self._build_filter_geometry()
         if not filter_geom:
             self.tbConsole.append("Brak geometrii filtrującej.")
@@ -752,7 +738,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             request = QgsFeatureRequest()
             request.setFilterRect(bbox)
 
-            # ---- PASS 1: find matching features (NO writer yet) ----
             matching_features: list[QgsFeature] = []
 
             for f in layer.getFeatures(request):
@@ -762,9 +747,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             if not matching_features:
                 self.tbConsole.append(f"Pominięto (brak przecięć): {layer_name}. \n")
-                continue  # ← NOTHING is written, layer NOT created
+                continue
 
-            # ---- PASS 2: create layer & write ----
             options = QgsVectorFileWriter.SaveVectorOptions()
             options.driverName = "GPKG"
             options.layerName = layer_name
@@ -783,7 +767,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             for f in matching_features:
                 writer.addFeature(f)
 
-            del writer  # flush to disk
+            del writer
 
             self.tbConsole.append(
                 f"Dodano {len(matching_features)} obiektów → {layer_name}"
@@ -795,7 +779,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.progressBar.setValue(100)
         self.tbConsole.append("Import zakończony.\n")
-
 
     def import_filtered_layers(self, layers_config: dict):
         resource_base = self.resource_path.filePath()
@@ -863,7 +846,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
         self._import_layers(files, self.project_path.filePath(), suffix)
-
 
     def layout_area_gen(self):
         self.tbConsole.append("Rozpoczynam generowanie zasięgów układów...")
@@ -1182,7 +1164,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f"Zakończono korektę spacji. Zaktualizowano {updated_count} obiektów."
             )
 
-
     def style_save_single(self):
         self.progressBar.reset()
         self.progressBar.setValue(0)
@@ -1219,8 +1200,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         except Exception as e:
             self.tbConsole.append(f"Błąd podczas zapisywania stylu: {str(e)}")
             self.progressBar.setValue(0)
-
-
 
     def style_save_all(self):
         reply = QMessageBox.question(
@@ -1315,7 +1294,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Zresetowano kolumnę fid.).")
 
-
     def numeracja_pol(self):
         self.tbConsole.append("Rozpoczynam numerację wszystkich obiektów...")
 
@@ -1375,7 +1353,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append(
             f"Zakończono numerację wszystkich obiektów. Łącznie ponumerowano {total_features} obiektów."
         )
-
 
     def numeracja_unikalna(self):
         self.tbConsole.append("Rozpoczynam numerację grup obiektów...")
@@ -1460,7 +1437,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f"Zakończono numerację. Przetworzono {processed_groups} grup, "
                 f"znumerowano {total_numbered} obiektów."
             )
-
 
     def import_external(self):
         target_layer = self.layer_area_2180()
@@ -1605,35 +1581,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Operacja zakończona.\n")
         QtWidgets.QApplication.processEvents()
 
-
-    def _build_filter_geometry(self) -> QgsGeometry | None:
-        layer = self.layer_area_2180()
-        if not layer or layer.featureCount() == 0:
-            return None
-
-        buffer_value = self.sbBufferValue.value()
-        geoms = []
-
-        for f in layer.getFeatures():
-            g = f.geometry()
-            if not g or g.isEmpty():
-                continue
-            if buffer_value > 0:
-                g = g.buffer(buffer_value, 5)
-            geoms.append(g)
-
-        if not geoms:
-            return None
-
-        return QgsGeometry.unaryUnion(geoms)
-
     def _report_intersections(
         self,
         layer: QgsVectorLayer,
         filter_geom: QgsGeometry,
         fields: list[str] | None,
-        existence_only: bool = False,
-    ) -> int:
+        existence_only: bool = False,) -> int:
 
         engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
         engine.prepareGeometry()
@@ -1665,13 +1618,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         return count
 
-
-
     def _analyze_layers(
         self,
         layers: dict[str, list[str] | None],
-        title: str,
-    ):
+        title: str,):
         self.tbConsole.append(f"\n--- {title} ---")
 
         filter_geom = self._build_filter_geometry()
@@ -1736,8 +1686,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                         self.tbConsole.append(f"    {fld}: brak wartości")
 
         self.tbConsole.append(f"--- Koniec analizy: {title} ---\n")
-
-
 
     def anal_fop(self):
         self.tbConsole.append("Analiza FOP - start")
@@ -1806,8 +1754,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Analiza FOP - koniec\n")
 
-
-
     def anal_adm(self):
         self.tbConsole.append("Analiza ADMINISTRACYJNE - start")
         QtWidgets.QApplication.processEvents()
@@ -1856,7 +1802,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.progressBar.setValue(int(i / total * 100))
 
         self.tbConsole.append("Analiza ADMINISTRACYJNE zakończona.\n")
-
 
     def anal_pig(self):
         self.tbConsole.append("Analiza PIG - start")
@@ -1931,7 +1876,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Analiza WODY zakończona.\n")
 
-
     def anal_powodz(self):
         self.tbConsole.append("Analiza POWODZ - start")
         QtWidgets.QApplication.processEvents()
@@ -1969,7 +1913,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.progressBar.setValue(int(i / total * 100))
 
         self.tbConsole.append("Analiza POWODZ zakończona.\n")
-
 
     def anal_inne(self):
         self.tbConsole.append("Analiza INNE - start")
@@ -2053,7 +1996,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Analiza INNE zakończona.\n")
 
-
     def list_gpkg_layers(self):
         try:
             conn = sqlite3.connect(self.project_path.filePath())
@@ -2092,7 +2034,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Tabela zaktualizowana.")
 
-
     def delete_selected_layers(self):
         table = self.table_gpkg
         rows_to_delete = [r for r in range(table.rowCount()) if table.item(r, 0).checkState() == Qt.Checked]
@@ -2127,7 +2068,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.tbConsole.append("Usuwanie zakończone, tabela zaktualizowana.")
         except Exception as e:
             self.tbConsole.append(f"Błąd usuwania warstw: {e}")
-
 
     def rename_selected_layer(self):
         table = self.table_gpkg
