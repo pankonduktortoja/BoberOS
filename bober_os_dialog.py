@@ -51,7 +51,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         super(BoberOSDialog, self).__init__(parent)
         self.iface = iface
         self.setupUi(self)
-        self._init_ui_color_customization()
+        self.init_ui_color_customization()
         
         self.setWindowFlags(Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint)
         
@@ -192,17 +192,17 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         else:
             self.labelLayerArea.setText("Brak wybranej warstwy")
     
-    def _init_ui_color_customization(self):
+    def init_ui_color_customization(self):
         self._ui_color_settings_key = "bober_os/settings/ui_bg_color"
         self._ui_color_default = "rgb(231, 255, 241)"
         self._base_stylesheet = self.styleSheet()
         settings = QSettings()
         color = settings.value(self._ui_color_settings_key, self._ui_color_default)
-        self._apply_ui_bg_color(color)
+        self.apply_ui_bg_color(color)
 
-        self.pbUiColor.clicked.connect(self._open_ui_color_slider)
+        self.pbUiColor.clicked.connect(self.open_ui_color_slider)
 
-    def _apply_ui_bg_color(self, color_str: str):
+    def apply_ui_bg_color(self, color_str: str):
         self.setStyleSheet(
             self._base_stylesheet +
             f"""
@@ -212,7 +212,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             """
         )
 
-    def _open_ui_color_slider(self):
+    def open_ui_color_slider(self):
         dlg = QColorDialog(self)
         dlg.setOption(QColorDialog.DontUseNativeDialog, True)
         dlg.setOption(QColorDialog.ShowAlphaChannel, False)
@@ -227,7 +227,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         color_str = f"rgb({color.red()}, {color.green()}, {color.blue()})"
 
-        self._apply_ui_bg_color(color_str)
+        self.apply_ui_bg_color(color_str)
         QSettings().setValue(self._ui_color_settings_key, color_str)
 
         if hasattr(self, "tbConsole"):
@@ -668,7 +668,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.tbConsole.append("Operacja zakończona.\n")
             QtWidgets.QApplication.processEvents()
 
-    def _build_filter_geometry(self) -> QgsGeometry | None:
+    def build_filter_geometry(self) -> QgsGeometry | None:
         layer = self.layer_area_2180()
         if not layer or layer.featureCount() == 0:
             return None
@@ -689,7 +689,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         return QgsGeometry.unaryUnion(geoms)
 
-    def _list_gpkg_layers(self, gpkg_path: str) -> set[str]:
+    def list_gpkg_layers(self, gpkg_path: str) -> set[str]:
         if not os.path.exists(gpkg_path):
             return set()
 
@@ -699,12 +699,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             cur.execute("SELECT table_name FROM gpkg_contents")
             return {row[0] for row in cur.fetchall()}
 
-    def _import_layers(
+    def import_layers(
         self,
         source_files: list[str],
         target_gpkg: str,
         layer_suffix: str,):
-        filter_geom = self._build_filter_geometry()
+        filter_geom = self.build_filter_geometry()
         if not filter_geom:
             self.tbConsole.append("Brak geometrii filtrującej.")
             return
@@ -713,7 +713,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
         engine.prepareGeometry()
 
-        existing_layers = self._list_gpkg_layers(target_gpkg)
+        existing_layers = self.list_gpkg_layers(target_gpkg)
 
         total = len(source_files)
         if total == 0:
@@ -803,7 +803,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     if f.lower().endswith((".gpkg", ".shp"))
                 )
 
-        self._import_layers(files, project_gpkg, suffix)
+        self.import_layers(files, project_gpkg, suffix)
 
     def import_all_updated_data(self):
         base = os.path.join(self.resource_path.filePath(), "DANE_AKTUALIZOWANE")
@@ -817,7 +817,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         buffer = self.sbBufferValue.value()
         suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
-        self._import_layers(files, self.project_path.filePath(), suffix)
+        self.import_layers(files, self.project_path.filePath(), suffix)
 
     def import_all_wody_data(self):
         base = os.path.join(self.resource_path.filePath(), "DANE_PGW_GZWP")
@@ -831,7 +831,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         buffer = self.sbBufferValue.value()
         suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
-        self._import_layers(files, self.project_path.filePath(), suffix)
+        self.import_layers(files, self.project_path.filePath(), suffix)
 
     def import_all_powodz_data(self):
         base = os.path.join(self.resource_path.filePath(), "DANE_POWODZ")
@@ -845,7 +845,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         buffer = self.sbBufferValue.value()
         suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
-        self._import_layers(files, self.project_path.filePath(), suffix)
+        self.import_layers(files, self.project_path.filePath(), suffix)
+
+    # def import_bdot_data          TO-DO
 
     def layout_area_gen(self):
         self.tbConsole.append("Rozpoczynam generowanie zasięgów układów...")
@@ -1163,6 +1165,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.tbConsole.append(
                 f"Zakończono korektę spacji. Zaktualizowano {updated_count} obiektów."
             )
+
+    # def pog_zgodnosc_z_planem             TO-DO
 
     def style_save_single(self):
         self.progressBar.reset()
@@ -1581,7 +1585,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Operacja zakończona.\n")
         QtWidgets.QApplication.processEvents()
 
-    def _report_intersections(
+    def report_intersections(
         self,
         layer: QgsVectorLayer,
         filter_geom: QgsGeometry,
@@ -1618,80 +1622,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         return count
 
-    def _analyze_layers(
-        self,
-        layers: dict[str, list[str] | None],
-        title: str,):
-        self.tbConsole.append(f"\n--- {title} ---")
-
-        filter_geom = self._build_filter_geometry()
-        if not filter_geom:
-            self.tbConsole.append("Brak geometrii filtrującej.\n")
-            return
-
-        bbox = filter_geom.boundingBox()
-        engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
-        engine.prepareGeometry()
-
-        resource_base = self.resource_path.filePath()
-        if not resource_base:
-            self.tbConsole.append("Brak resource_path.\n")
-            return
-
-        for rel_path, fields in layers.items():
-            abs_path = os.path.join(resource_base, rel_path)
-
-            self.tbConsole.append(f"\nWarstwa: {rel_path}")
-
-            if not os.path.exists(abs_path):
-                self.tbConsole.append("Plik nie istnieje.")
-                continue
-
-            layer = QgsVectorLayer(abs_path, "src", "ogr")
-            if not layer.isValid():
-                self.tbConsole.append("Nie można wczytać warstwy.")
-                continue
-
-            request = QgsFeatureRequest()
-            request.setFilterRect(bbox)
-
-            found = 0
-            values: dict[str, set] = {}
-
-            for f in layer.getFeatures(request):
-                g = f.geometry()
-                if not g or not engine.intersects(g.constGet()):
-                    continue
-
-                found += 1
-
-                if fields:
-                    for fld in fields:
-                        val = f[fld]
-                        if val is not None:
-                            values.setdefault(fld, set()).add(val)
-
-            if found == 0:
-                self.tbConsole.append("Brak przecięć.")
-                continue
-
-            self.tbConsole.append(f"Liczba przecięć: {found}")
-
-            if fields:
-                for fld, vals in values.items():
-                    if vals:
-                        joined = ", ".join(str(v) for v in sorted(vals))
-                        self.tbConsole.append(f"    {fld}: {joined}")
-                    else:
-                        self.tbConsole.append(f"    {fld}: brak wartości")
-
-        self.tbConsole.append(f"--- Koniec analizy: {title} ---\n")
-
     def anal_fop(self):
         self.tbConsole.append("Analiza FOP - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geometry()
+        filter_geom = self.build_filter_geometry()
         if not filter_geom:
             self.tbConsole.append("Brak funkcji w layer_area lub buforze.")
             return
@@ -1758,7 +1693,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Analiza ADMINISTRACYJNE - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geometry()
+        filter_geom = self.build_filter_geometry()
         base = self.resource_path.filePath()
 
         if not filter_geom:
@@ -1796,7 +1731,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             layer = QgsVectorLayer(path, name, "ogr")
             self.tbConsole.append(f"{name}:")
-            count = self._report_intersections(layer, filter_geom, fields)
+            count = self.report_intersections(layer, filter_geom, fields)
             self.tbConsole.append(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
@@ -1807,7 +1742,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Analiza PIG - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geometry()
+        filter_geom = self.build_filter_geometry()
         if not filter_geom:
             self.tbConsole.append("Brak funkcji w layer_area.")
             return
@@ -1830,7 +1765,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             layer = QgsVectorLayer(path, name, "ogr")
             self.tbConsole.append(f"{name}:")
-            count = self._report_intersections(layer, filter_geom, fields)
+            count = self.report_intersections(layer, filter_geom, fields)
             self.tbConsole.append(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
@@ -1841,7 +1776,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Analiza WODY - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geometry()
+        filter_geom = self.build_filter_geometry()
         if not filter_geom:
             self.tbConsole.append("Brak funkcji w layer_area.")
             return
@@ -1869,7 +1804,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             layer = QgsVectorLayer(path, name, "ogr")
             self.tbConsole.append(f"{name}:")
-            count = self._report_intersections(layer, filter_geom, fields)
+            count = self.report_intersections(layer, filter_geom, fields)
             self.tbConsole.append(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
@@ -1880,7 +1815,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Analiza POWODZ - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geometry()
+        filter_geom = self.build_filter_geometry()
         if not filter_geom:
             self.tbConsole.append("Brak funkcji w layer_area.")
             return
@@ -1907,7 +1842,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             layer = QgsVectorLayer(path, name, "ogr")
             self.tbConsole.append(f"{name}:")
-            count = self._report_intersections(layer, filter_geom, fields)
+            count = self.report_intersections(layer, filter_geom, fields)
             self.tbConsole.append(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
@@ -1918,7 +1853,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Analiza INNE - start")
         QtWidgets.QApplication.processEvents()
 
-        filter_geom = self._build_filter_geometry()
+        filter_geom = self.build_filter_geometry()
         if not filter_geom:
             self.tbConsole.append("Brak funkcji w layer_area lub buforze.")
             return
