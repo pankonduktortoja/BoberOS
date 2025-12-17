@@ -179,6 +179,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.pb_import_pkp_halas_ldwn: {"INNE_PKP_halas_imisja_LDWN.gpkg": ["DANE_INNE"]},
             self.pb_import_pkp_halas_ln: {"INNE_PKP_halas_imisja_LN.gpkg": ["DANE_INNE"]},
             self.pb_import_torfowiska_alk: {"INNE_Torfowiska_alkaliczne.gpkg": ["DANE_INNE"]},
+            self.pb_import_korytarze: {"INNE_Korytarze_ekologiczne.gpkg": ["DANE_INNE"]},
         }
 
         for btn, config in button_configs.items():
@@ -739,14 +740,21 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         return QgsGeometry.unaryUnion(geoms)
 
-    def list_gpkg_layers(self, gpkg_path: str) -> set[str]:
-        if not os.path.exists(gpkg_path):
-            return set()
+    def list_gpkg_layers_file(self, gpkg_path: str) -> set[str]:
+        layers: set[str] = set()
 
-        with sqlite3.connect(gpkg_path) as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT table_name FROM gpkg_contents")
-            return {row[0] for row in cur.fetchall()}
+        if not gpkg_path or not os.path.isfile(gpkg_path):
+            return layers
+
+        provider = QgsProviderRegistry.instance().providerMetadata("ogr")
+        sublayers = provider.querySublayers(gpkg_path)
+
+        for sub in sublayers:
+            name = sub.name()
+            if name:
+                layers.add(name)
+
+        return layers
 
     def import_layers(
         self,
@@ -762,7 +770,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
         engine.prepareGeometry()
 
-        existing_layers = self.list_gpkg_layers(target_gpkg)
+        existing_layers = self.list_gpkg_layers_file(target_gpkg)
 
         total = len(source_files)
         if total == 0:
@@ -2089,6 +2097,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             "DANE_INNE/INNE_Potencjalna_roslinnosc_naturalna.gpkg": ["kod", "nazwa_PL"],
             "DANE_INNE/INNE_Torfowiska_alkaliczne.gpkg": None,
             "DANE_INNE/INNE_Wos_1999_regiony_klimatyczne.gpkg": ["numer", "nazwa"],
+            "DANE_INNE/INNE_Korytarze_ekologiczne.gpkg": ["nazwa"],
         }
 
         bbox = filter_geom.boundingBox()
@@ -2153,39 +2162,46 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Analiza INNE zakończona.\n")
 
-    def list_gpkg_layers(self):
-        try:
-            conn = sqlite3.connect(self.project_path.filePath())
-            cursor = conn.cursor()
-            cursor.execute("SELECT table_name FROM gpkg_contents")
-            layers = cursor.fetchall()
-            conn.close()
-            self.tbConsole.append(f"Znaleziono {len(layers)} warstw w geopaczce.")
-            return layers
-        except Exception as e:
-            self.tbConsole.append(f"Błąd ładowania warstw: {e}")
+    def list_project_gpkg_layers(self) -> list[str]:
+        gpkg = self.project_path.filePath()
+        if not gpkg or not os.path.isfile(gpkg):
             return []
+
+        try:
+            conn = sqlite3.connect(gpkg)
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT table_name FROM gpkg_contents WHERE data_type = 'features'"
+            )
+            return [row[0] for row in cur.fetchall()]
+        finally:
+            conn.close()
 
     def load_layers(self):
         table = self.table_gpkg
         table.setRowCount(0)
         table.setColumnCount(2)
         table.setHorizontalHeaderLabels([" ", "Nazwa warstwy"])
-        layers = self.list_gpkg_layers()
-        for i, (name,) in enumerate(layers):
+
+        layers = self.list_project_gpkg_layers()
+
+        for i, name in enumerate(layers):
             table.insertRow(i)
 
-            item = QTableWidgetItem()
-            item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-            item.setCheckState(Qt.Unchecked)
-            table.setItem(i, 0, item)
+            chk = QTableWidgetItem()
+            chk.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            chk.setCheckState(Qt.Unchecked)
+            table.setItem(i, 0, chk)
 
             table.setItem(i, 1, QTableWidgetItem(name))
 
         if table.rowCount() > 0:
-            width = table.sizeHintForIndex(table.model().index(0, 0)).width()
+            width = table.sizeHintForIndex(
+                table.model().index(0, 0)
+            ).width()
         else:
             width = 25
+
         table.setColumnWidth(0, width + 10)
         table.horizontalHeader().setStretchLastSection(True)
 

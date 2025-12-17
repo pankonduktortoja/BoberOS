@@ -442,7 +442,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>4</number>
         </property>
         <widget class="QWidget" name="tab_4">
          <attribute name="title">
@@ -948,6 +948,13 @@ p, li { white-space: pre-wrap; }
             <widget class="QPushButton" name="pb_import_torfowiska_alk">
              <property name="text">
               <string>Baza torfowisk alkalicznych 2019</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_import_korytarze">
+             <property name="text">
+              <string>Korytarze ekologiczne (2005)</string>
              </property>
             </widget>
            </item>
