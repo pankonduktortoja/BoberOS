@@ -6,14 +6,14 @@
 name=BoberOS
 qgisMinimumVersion=3.34
 description=A comprehensive tool for all your needs - Bober Operating System
-version=0.1
+version=1.0
 author=Bartosz Łęczycki
 email=bartosz.leczycki98@gmail.com
 
 about=This plugin manages data making it easier to actualize it on lokal disk, imports a local copy of the data for lesser areas, analyzes the data within a given area and does several more tricks.
 
-tracker=http://bugs
-repository=http://repo
+tracker=https://github.com/pankonduktortoja/BoberOS/issues
+repository=https://github.com/pankonduktortoja/BoberOS
 
 hasProcessingProvider=no
 # Uncomment the following line and add your changelog:
@@ -22,7 +22,7 @@ hasProcessingProvider=no
 # Tags are comma separated with spaces allowed
 tags=python
 
-homepage=http://homepage
+homepage=https://github.com/pankonduktortoja/BoberOS
 category=Plugins
 icon=icon.png
 # experimental flag
