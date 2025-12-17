@@ -213,6 +213,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_powodz.clicked.connect(self.anal_powodz)
         self.pb_anal_inne.clicked.connect(self.anal_inne)
         self.pb_anal_oze.clicked.connect(self.anal_oze)
+        self.pb_anal_fop_10km.clicked.connect(self.anal_fop_10km)
+        
         
         
         self.pb_gpkg_load_layers.clicked.connect(self.load_layers)
@@ -1828,6 +1830,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layers = {
             "DANE_AKTUALIZOWANE/FOP/FOP_ObszaryChronionegoKrajobrazu.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_ObszarySpecjalnejOchrony.gpkg": ["kod", "nazwa"],
+            "DANE_AKTUALIZOWANE/FOP/FOP_SpecjalneObszaryOchrony.gpkg": ["kod", "nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_ParkiKrajobrazowe.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_ParkiNarodowe.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_Rezerwaty.gpkg": ["nazwa"],
@@ -1885,8 +1888,134 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Analiza FOP - koniec\n")
 
+    def anal_fop_10km(self):
+        import os
+        from qgis.PyQt import QtWidgets
 
-    # def anal_fop_10km             TO-DO
+        self.tbConsole.append("Analiza FOP 10 km - start")
+        QtWidgets.QApplication.processEvents()
+
+        area_layer = self.layer_area_2180()
+        if not area_layer or area_layer.featureCount() == 0:
+            self.tbConsole.append("Brak warstwy obszaru odniesienia.")
+            return
+
+        # Budowanie geometrii obszaru
+        area_geom = None
+        for f in area_layer.getFeatures():
+            g = f.geometry()
+            if g and not g.isEmpty():
+                area_geom = g if area_geom is None else area_geom.combine(g)
+
+        if not area_geom:
+            self.tbConsole.append("Nie udało się zbudować geometrii obszaru.")
+            return
+
+        buffer_geom = area_geom.buffer(10_000, 8)
+        bbox = buffer_geom.boundingBox()
+
+        engine_buf = QgsGeometry.createGeometryEngine(buffer_geom.constGet())
+        engine_buf.prepareGeometry()
+
+        engine_area = QgsGeometry.createGeometryEngine(area_geom.constGet())
+        engine_area.prepareGeometry()
+
+        resource_base = self.resource_path.filePath()
+        if not resource_base:
+            self.tbConsole.append("Brak ustawionej ścieżki do zasobów.")
+            return
+
+        layers = {
+            "DANE_AKTUALIZOWANE/FOP/FOP_ObszaryChronionegoKrajobrazu.gpkg": ("Obszar Chronionego Krajobrazu", ["nazwa"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_ObszarySpecjalnejOchrony.gpkg": ("Obszar Natura 2000", ["nazwa", "kod"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_SpecjalneObszaryOchrony.gpkg": ("Obszar Natura 2000", ["nazwa", "kod"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_ParkiKrajobrazowe.gpkg": ("Park Krajobrazowy", ["nazwa"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_ParkiNarodowe.gpkg": ("Park Narodowy", ["nazwa"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_Rezerwaty.gpkg": ("Rezerwat przyrody", ["nazwa"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_UzytkiEkologiczne.gpkg": ("Użytek ekologiczny", ["nazwa"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_ZespolyPrzyrodniczoKrajobrazowe.gpkg": ("Zespół przyrodniczo-krajobrazowy", ["nazwa"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_StanowiskaDokumentacyjne.gpkg": ("Stanowisko dokumentacyjne", ["nazwa"]),
+            "DANE_AKTUALIZOWANE/FOP/FOP_PomnikiPrzyrody_powierzchniowe.gpkg": ("Pomniki przyrody powierzchniowe", None),
+            "DANE_AKTUALIZOWANE/FOP/FOP_PomnikiPrzyrody_punktowe.gpkg": ("Pomniki przyrody punktowe", None),
+        }
+
+        angle_ranges = [
+            ((0, 30), "północ"),
+            ((30, 60), "północny wschód"),
+            ((60, 120), "wschód"),
+            ((120, 150), "południowy wschód"),
+            ((150, 210), "południe"),
+            ((210, 240), "południowy zachód"),
+            ((240, 300), "zachód"),
+            ((300, 330), "północny zachód"),
+            ((330, 360.0001), "północ"),
+        ]
+
+        def azimuth_label(az):
+            az = az % 360
+            for (a, b), txt in angle_ranges:
+                if a <= az < b:
+                    return txt
+            return "północ"
+
+        for rel_path, (prefix, fields) in layers.items():
+            abs_path = os.path.join(resource_base, rel_path)
+            layer_name = os.path.basename(rel_path)
+
+            if not os.path.exists(abs_path):
+                continue
+
+            layer = QgsVectorLayer(abs_path, layer_name, "ogr")
+            if not layer.isValid():
+                continue
+
+            request = QgsFeatureRequest().setFilterRect(bbox)
+            matches = []
+
+            for f in layer.getFeatures(request):
+                g = f.geometry()
+                if g and engine_buf.intersects(g.constGet()):
+                    matches.append(f)
+
+            count = len(matches)
+            if count == 0:
+                continue
+
+            if fields is None:
+                self.tbConsole.append(f"{prefix}: {count}")
+                continue
+
+            if "UzytkiEkologiczne" in layer_name and count > 10:
+                self.tbConsole.append(f"Użytki ekologiczne: {count}")
+                continue
+
+            for f in matches:
+                parts = [prefix]
+
+                for fld in fields:
+                    val = f[fld]
+                    if val:
+                        parts.append(str(val))
+
+                g = f.geometry()
+                if engine_area.intersects(g.constGet()):
+                    parts.append("- w obszarze")
+                else:
+                    p_feat = g.centroid().asPoint()
+                    try:
+                        p1, p_near, after_idx, before_idx = area_geom.closestSegmentWithContext(p_feat)
+                        az = p_near.azimuth(p_feat) if p_near else 0
+                    except Exception:
+                        az = 0
+                    az = az % 360
+
+                    dist_km = round(area_geom.distance(g) / 1000, 1)
+                    dist_txt = f"{dist_km:.1f}".replace(".", ",")
+                    parts.append(f"- {dist_txt} km na {azimuth_label(az)}")
+
+                self.tbConsole.append(" ".join(parts))
+
+        self.tbConsole.append("Analiza FOP 10 km - koniec\n")
 
     def anal_adm(self):
         self.tbConsole.append("Analiza ADMINISTRACYJNE - start")
