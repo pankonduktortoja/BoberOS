@@ -136,14 +136,20 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.resource_path.setFilePath(saved_resource)
         
         self.pb_act_fop.clicked.connect(self.act_fop_layers)
+        self.pb_act_pomniki.clicked.connect(self.act_pomniki_layers)
         self.pb_act_pig.clicked.connect(self.act_pig_layers)
         self.pb_act_adm.clicked.connect(self.act_adm_layers)
+        self.pb_act_oze.clicked.connect(self.act_oze_layers)
         self.fop_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
         self.fop_path.setFilter("Shapefile (*.shp)")
+        self.pomniki_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
+        self.pomniki_path.setFilter("GPKG (*.gpkg)")
         self.pig_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
         self.pig_path.setFilter("Shapefile (*.shp)")
         self.adm_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
         self.adm_path.setFilter("GML file (*.gml)")
+        self.oze_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
+        self.oze_path.setFilter("GPKG file (*.gpkg)")
         
         button_configs = {
             self.pb_import_fop: {"": ["DANE_AKTUALIZOWANE", "FOP"]},
@@ -158,6 +164,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.pb_import_wojewodztwo: {"ADM_Wojewodztwa.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
             self.pb_import_nadlesnictwo: {"ADM_Nadlesnictwa.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
             self.pb_import_zz: {"ADM_ZarzadyZlewni.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
+            self.pb_import_oze: {"": ["DANE_AKTUALIZOWANE", "OZE"]},
             self.pb_import_jcwpd: {"WODY_JCWPd.gpkg": ["DANE_PGW_GZWP"]},
             self.pb_import_gzwp: {"WODY_GZWP.gpkg": ["DANE_PGW_GZWP"]},
             self.pb_import_jcwprz: {"WODY_Zlewnie_JCWP_rzeczne.gpkg": ["DANE_PGW_GZWP"]},
@@ -205,6 +212,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_wody.clicked.connect(self.anal_wody)
         self.pb_anal_powodz.clicked.connect(self.anal_powodz)
         self.pb_anal_inne.clicked.connect(self.anal_inne)
+        self.pb_anal_oze.clicked.connect(self.anal_oze)
         
         
         self.pb_gpkg_load_layers.clicked.connect(self.load_layers)
@@ -487,6 +495,25 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             target_crs="EPSG:2180",
             subfolder=["DANE_AKTUALIZOWANE", "FOP"]
         )
+    
+    def act_pomniki_layers(self):
+        shp_list = QgsFileWidget.splitFilePaths(self.pomniki_path.filePath())
+
+        match_rules = {
+            "PomnikiPrzyrodyPunktowe%": "FOP_PomnikiPrzyrody_punktowe.gpkg",
+            "PomnikiPrzyrodyPowierzchniowe%": "FOP_PomnikiPrzyrody_powierzchniowe.gpkg",
+        }
+
+        fields_per_rule = {k: ["gid", "kodinspire"] for k in match_rules.keys()}
+
+        self.process_vector_files(
+            input_paths=shp_list,
+            match_rules=match_rules,
+            fields_per_rule=fields_per_rule,
+            encoding="UTF-8",
+            target_crs="EPSG:2180",
+            subfolder=["DANE_AKTUALIZOWANE", "FOP"]
+        )        
 
     def act_pig_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.pig_path.filePath())
@@ -513,6 +540,30 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             target_crs="EPSG:2180",
             subfolder=["DANE_AKTUALIZOWANE", "PIG"]
         )
+
+    def act_oze_layers(self):
+        shp_list = QgsFileWidget.splitFilePaths(self.oze_path.filePath())
+
+        match_rules = {
+            "elektrownie wiatrowe%": "OZE_elektrownie_wiatrowe.gpkg",
+            "fotowoltaika%": "OZE_fotowoltaika.gpkg",
+            "biogazownie%": "OZE_biogazownie.gpkg",
+        }
+
+        fields_per_rule = {
+            "elektrownie wiatrowe%": ["organ"],
+            "fotowoltaika%": ["powierzchnia zabudowy [ha]", "powierzchnia zabudowy 2 [ha]", "RDOŚ"],
+            "biogazownie%": ["RDOŚ"],
+        }
+
+        self.process_vector_files(
+            input_paths=shp_list,
+            match_rules=match_rules,
+            fields_per_rule=fields_per_rule,
+            encoding="UTF-8",
+            target_crs="EPSG:2180",
+            subfolder=["DANE_AKTUALIZOWANE", "OZE"]
+        )        
 
     def act_adm_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.adm_path.filePath())
@@ -1783,6 +1834,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             "DANE_AKTUALIZOWANE/FOP/FOP_UzytkiEkologiczne.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_ZespolyPrzyrodniczoKrajobrazowe.gpkg": ["nazwa"],
             "DANE_AKTUALIZOWANE/FOP/FOP_StanowiskaDokumentacyjne.gpkg": ["nazwa"],
+            "DANE_AKTUALIZOWANE/FOP/FOP_PomnikiPrzyrody_powierzchniowe.gpkg": None,
+            "DANE_AKTUALIZOWANE/FOP/FOP_PomnikiPrzyrody_punktowe.gpkg": None,
         }
 
         bbox = filter_geom.boundingBox()
@@ -1817,8 +1870,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             self.tbConsole.append(f"Liczba przecięć: {count}")
 
-            is_uzytki = rel_path.endswith("FOP_UzytkiEkologiczne.gpkg")
+            if not fields:
+                continue
 
+            is_uzytki = rel_path.endswith("FOP_UzytkiEkologiczne.gpkg")
             if is_uzytki and count > 10:
                 self.tbConsole.append("    > 10 obiektów – pominięto listę nazw.")
                 continue
@@ -1829,6 +1884,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     self.tbConsole.append(" | ".join(vals))
 
         self.tbConsole.append("Analiza FOP - koniec\n")
+
+
+    # def anal_fop_10km             TO-DO
 
     def anal_adm(self):
         self.tbConsole.append("Analiza ADMINISTRACYJNE - start")
@@ -2072,6 +2130,40 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     self.tbConsole.append(" | ".join(row))
 
         self.tbConsole.append("Analiza INNE zakończona.\n")
+
+    def anal_oze(self):
+        self.tbConsole.append("Analiza OZE - start")
+        QtWidgets.QApplication.processEvents()
+
+        filter_geom = self.build_filter_geometry()
+        if not filter_geom:
+            self.tbConsole.append("Brak funkcji w layer_area.")
+            return
+
+        base = self.resource_path.filePath()
+        layers = {
+            "DANE_AKTUALIZOWANE/OZE/OZE_elektrownie_wiatrowe.gpkg": None,
+            "DANE_AKTUALIZOWANE/OZE/OZE_biogazownie.gpkg": None,
+            "DANE_AKTUALIZOWANE/OZE/OZE_fotowoltaika.gpkg": None,
+        }
+
+        total = len(layers)
+        for i, (rel, fields) in enumerate(layers.items(), 1):
+            path = os.path.join(base, rel)
+            name = os.path.basename(path)
+
+            if not os.path.exists(path):
+                self.tbConsole.append(f"{name}: brak pliku.")
+                continue
+
+            layer = QgsVectorLayer(path, name, "ogr")
+            self.tbConsole.append(f"{name}:")
+            count = self.report_intersections(layer, filter_geom, fields)
+            self.tbConsole.append(f"Liczba: {count}\n")
+
+            self.progressBar.setValue(int(i / total * 100))
+
+        self.tbConsole.append("Analiza OZE zakończona.\n")
 
     def list_project_gpkg_layers(self) -> list[str]:
         gpkg = self.project_path.filePath()

@@ -113,7 +113,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>2</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab_10">
        <attribute name="title">
@@ -303,76 +303,153 @@ p, li { white-space: pre-wrap; }
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_2">
          <item>
-          <widget class="QLabel" name="label_5">
-           <property name="text">
-            <string>Wybierz ścieżkę do pobranych danych FOP</string>
+          <layout class="QGridLayout" name="gridLayout">
+           <property name="topMargin">
+            <number>0</number>
            </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QgsFileWidget" name="fop_path">
-           <property name="storageMode">
-            <enum>QgsFileWidget::GetFile</enum>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_act_fop">
-           <property name="text">
-            <string>Aktualizuj dane FOP</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="label_7">
-           <property name="text">
-            <string>Wybierz ścieżkę do pobranych danych PIG</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QgsFileWidget" name="pig_path"/>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_act_pig">
-           <property name="text">
-            <string>Aktualizuj dane PIG</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="label_6">
-           <property name="text">
-            <string>Wybierz ścieżkę do pobranych granic administracyjnych</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QgsFileWidget" name="adm_path"/>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_act_adm">
-           <property name="text">
-            <string>Aktualizuj dane granic administracyjnych</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="label_13">
-           <property name="text">
-            <string>Wybierz ścieżkę do pobranych danych BDOT</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QgsFileWidget" name="bdot_path"/>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_act_bdot">
-           <property name="text">
-            <string>Aktualizuj dane BDOT</string>
-           </property>
-          </widget>
+           <item row="4" column="0">
+            <widget class="QgsFileWidget" name="pig_path"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QgsFileWidget" name="fop_path">
+             <property name="storageMode">
+              <enum>QgsFileWidget::GetFile</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_7">
+             <property name="text">
+              <string>Wybierz ścieżkę do pobranych danych PIG</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="label_6">
+             <property name="text">
+              <string>Wybierz ścieżkę do pobranych granic administracyjnych</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="label_12">
+             <property name="text">
+              <string>Wybierz ścieżkę do pobranych pomników przyrody</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QPushButton" name="pb_act_fop">
+             <property name="text">
+              <string>Aktualizuj dane FOP</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QPushButton" name="pb_act_pomniki">
+             <property name="text">
+              <string>Aktualizuj pomniki</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="0">
+            <widget class="QgsFileWidget" name="adm_path"/>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_5">
+             <property name="text">
+              <string>Wybierz ścieżkę do pobranych danych FOP</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QgsFileWidget" name="pomniki_path"/>
+           </item>
+           <item row="5" column="0">
+            <widget class="QPushButton" name="pb_act_pig">
+             <property name="text">
+              <string>Aktualizuj dane PIG</string>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="0">
+            <widget class="QPushButton" name="pb_act_adm">
+             <property name="text">
+              <string>Aktualizuj dane granic administracyjnych</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QLabel" name="label_13">
+             <property name="text">
+              <string>Wybierz ścieżkę do pobranych danych BDOT</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="1">
+            <widget class="QgsFileWidget" name="bdot_path"/>
+           </item>
+           <item row="8" column="1">
+            <widget class="QPushButton" name="pb_act_bdot">
+             <property name="text">
+              <string>Aktualizuj dane BDOT</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QPushButton" name="pb_act_oze">
+             <property name="text">
+              <string>Aktualizuj dane OZE</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QgsFileWidget" name="oze_path"/>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="label_16">
+             <property name="text">
+              <string>Wybierz ścieżkę do pobranych danych OZE</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
          <item>
           <spacer name="verticalSpacer_2">
@@ -396,10 +473,14 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;W celu aktualizacji danych należy wybrać ścieżkę do pobranej warstwy oraz wcisnąć przycisk.&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;ŹRÓDŁA DANYCH ORAZ OCZEKIWANY FORMAT&lt;/span&gt;&lt;/p&gt;
-&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Dane FOP pobieramy z adresu:&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Dane FOP oraz OZE pobieramy z adresu:&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;https://www.gov.pl/web/gdos/dostep-do-danych-geoprzestrzennych&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Warstwy należy wypakować z archiwum, zaznaczamy wyłącznie format .shp.&lt;/p&gt;
-&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Spośród danych FOP pobieramy/aktualizujemy wyłącznie granice form ochrony przyrody.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Spośród danych FOP pobieramy/aktualizujemy wyłącznie granice form ochrony przyrody oraz dane OZE. &lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Przy aktualizacji pomników przyrody należy pobrać je przez usługę WFS: https://sdi.gdos.gov.pl/wfs a następnie zapisać lokalnie do .gpkg&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Warstwę punktową zapisujemy jako PomnikiPrzyrodyPunktowe&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Warstwę powierzchniową zapisujemy jako PomnikiPrzyrodyPowierzchniowe&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;(to ważne, żeby skrypt importu działał prawidłowo)&lt;/span&gt;&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Dane PIG pobieramy z adresu:&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;https://dm.pgi.gov.pl&lt;/p&gt;
@@ -442,7 +523,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>4</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_4">
          <attribute name="title">
@@ -462,6 +543,13 @@ p, li { white-space: pre-wrap; }
             <widget class="QPushButton" name="pb_import_fop">
              <property name="text">
               <string>Importuj dane FOP</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_import_oze">
+             <property name="text">
+              <string>Importuj dane OZE</string>
              </property>
             </widget>
            </item>
@@ -1142,6 +1230,13 @@ p, li { white-space: pre-wrap; }
           <widget class="QPushButton" name="pb_anal_fop_10km">
            <property name="text">
             <string>Analizuj dane FOP do 10 km - WORK IN PROGRESS</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb_anal_oze">
+           <property name="text">
+            <string>Analizuj dane OZE</string>
            </property>
           </widget>
          </item>
