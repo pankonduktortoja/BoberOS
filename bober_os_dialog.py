@@ -1900,7 +1900,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.tbConsole.append("Brak warstwy obszaru odniesienia.")
             return
 
-        # Budowanie geometrii obszaru
         area_geom = None
         for f in area_layer.getFeatures():
             g = f.geometry()
@@ -1940,15 +1939,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         }
 
         angle_ranges = [
-            ((0, 30), "północ"),
-            ((30, 60), "północny wschód"),
-            ((60, 120), "wschód"),
-            ((120, 150), "południowy wschód"),
-            ((150, 210), "południe"),
-            ((210, 240), "południowy zachód"),
-            ((240, 300), "zachód"),
-            ((300, 330), "północny zachód"),
-            ((330, 360.0001), "północ"),
+            ((337.5, 360.0), "północ"),
+            ((0.0, 22.5), "północ"),
+            ((22.5, 67.5), "północny wschód"),
+            ((67.5, 112.5), "wschód"),
+            ((112.5, 157.5), "południowy wschód"),
+            ((157.5, 202.5), "południe"),
+            ((202.5, 247.5), "południowy zachód"),
+            ((247.5, 292.5), "zachód"),
+            ((292.5, 337.5), "północny zachód"),
         ]
 
         def azimuth_label(az):
@@ -1977,16 +1976,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 if g and engine_buf.intersects(g.constGet()):
                     matches.append(f)
 
-            count = len(matches)
-            if count == 0:
+            if not matches:
                 continue
 
             if fields is None:
-                self.tbConsole.append(f"{prefix}: {count}")
+                self.tbConsole.append(f"{prefix}: {len(matches)}")
                 continue
 
-            if "UzytkiEkologiczne" in layer_name and count > 10:
-                self.tbConsole.append(f"Użytki ekologiczne: {count}")
+            if "UzytkiEkologiczne" in layer_name and len(matches) > 10:
+                self.tbConsole.append(f"Użytki ekologiczne: {len(matches)}")
                 continue
 
             for f in matches:
@@ -1998,24 +1996,37 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                         parts.append(str(val))
 
                 g = f.geometry()
+
                 if engine_area.intersects(g.constGet()):
                     parts.append("- w obszarze")
                 else:
-                    p_feat = g.centroid().asPoint()
                     try:
-                        p1, p_near, after_idx, before_idx = area_geom.closestSegmentWithContext(p_feat)
-                        az = p_near.azimuth(p_feat) if p_near else 0
+                        pt = g.centroid().asPoint()
+                        # najpierw znajdź najbliższy punkt na granicy obszaru
+                        _, p_area, _, _ = area_geom.closestSegmentWithContext(pt)
+                        # potem najbliższy punkt na granicy obiektu względem tego punktu
+                        _, p_obj, _, _ = g.closestSegmentWithContext(p_area)
+
+                        if p_area and p_obj:
+                            # azymut od granicy obszaru do obiektu
+                            az = p_area.azimuth(p_obj)
+                        else:
+                            az = 0
                     except Exception:
                         az = 0
+
                     az = az % 360
 
                     dist_km = round(area_geom.distance(g) / 1000, 1)
                     dist_txt = f"{dist_km:.1f}".replace(".", ",")
+
                     parts.append(f"- {dist_txt} km na {azimuth_label(az)}")
 
                 self.tbConsole.append(" ".join(parts))
 
         self.tbConsole.append("Analiza FOP 10 km - koniec\n")
+
+
 
     def anal_adm(self):
         self.tbConsole.append("Analiza ADMINISTRACYJNE - start")
