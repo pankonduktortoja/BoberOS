@@ -91,6 +91,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         "OT_OIMK": "BDOT_inne_mokradlo",
         "OT_OISZ": "BDOT_inne_szuwary",
     }    
+    
     def __init__(self, parent=None):
         if parent is None:
             parent = iface.mainWindow()
@@ -725,7 +726,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return None
 
         buffer_value = self.sbBufferValue.value()
-        geoms = []
+        result = None
 
         for f in layer.getFeatures():
             g = f.geometry()
@@ -733,12 +734,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 continue
             if buffer_value > 0:
                 g = g.buffer(buffer_value, 5)
-            geoms.append(g)
+            result = g if result is None else result.combine(g)
 
-        if not geoms:
-            return None
-
-        return QgsGeometry.unaryUnion(geoms)
+        return result
 
     def list_gpkg_layers_file(self, gpkg_path: str) -> set[str]:
         layers: set[str] = set()
@@ -1286,54 +1284,42 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         }
 
         layer = self.iface.activeLayer()
-
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy. Wybierz warstwę i spróbuj ponownie.")
-            self.progressBar.setValue(0)
+            self.tbConsole.append("Brak aktywnej warstwy.")
             return
 
-        required_fields = ["symbol", "profilPodstawowy"]
-        for fld in required_fields:
-            if fld not in layer.fields().names():
-                self.tbConsole.append(f"Brak wymaganego pola '{fld}'. Operacja przerwana.")
-                return
+        fields = layer.fields()
+        if "symbol" not in fields.names() or "profilPodstawowy" not in fields.names():
+            self.tbConsole.append("Brak wymaganych pól.")
+            return
 
-        all_features = list(layer.getFeatures())
-        total = len(all_features)
+        symbol_idx = fields.indexFromName("symbol")
+        profile_idx = fields.indexFromName("profilPodstawowy")
 
+        features = list(layer.getFeatures())
+        total = len(features)
         if total == 0:
-            self.tbConsole.append("Warstwa nie zawiera obiektów – nic do korekty.")
-            self.progressBar.setValue(0)
+            self.tbConsole.append("Warstwa nie zawiera obiektów.")
             return
+
+        changes = {}
 
         self.progressBar.setMaximum(total)
         self.progressBar.setValue(0)
 
-        layer.startEditing()
+        for i, f in enumerate(features, start=1):
+            expected = symbol_to_profile.get(f[symbol_idx])
+            if expected and f[profile_idx] != expected:
+                changes[f.id()] = {profile_idx: expected}
+            self.progressBar.setValue(i)
 
-        updated_count = 0
-
-        for idx, feature in enumerate(all_features, start=1):
-            symbol = feature["symbol"]
-            current_profile = feature["profilPodstawowy"]
-
-            expected_profile = symbol_to_profile.get(symbol)
-
-            if expected_profile and current_profile != expected_profile:
-                feature.setAttribute("profilPodstawowy", expected_profile)
-                layer.updateFeature(feature)
-                updated_count += 1
-
-            self.progressBar.setValue(idx)
-
-        layer.commitChanges()
-
-        if updated_count == 0:
-            self.tbConsole.append("Nie dokonano żadnych zmian – wszystkie profile były poprawne.")
+        if changes:
+            layer.startEditing()
+            layer.dataProvider().changeAttributeValues(changes)
+            layer.commitChanges()
+            self.tbConsole.append(f"Zaktualizowano {len(changes)} obiektów.")
         else:
-            self.tbConsole.append(
-                f"Zakończono korektę. Zaktualizowano {updated_count} obiektów."
-            )
+            self.tbConsole.append("Nie dokonano żadnych zmian.")
 
     def pog_korekta_spacje(self):
         self.tbConsole.append("Rozpoczynam korektę spacji w kolumnach...")
@@ -1350,51 +1336,42 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.tbConsole.append(f"Brak wymaganego pola '{col}'. Operacja przerwana.")
                 return
 
-        all_features = list(layer.getFeatures())
-        total = len(all_features)
-
+        features = list(layer.getFeatures())
+        total = len(features)
         if total == 0:
             self.tbConsole.append("Warstwa nie zawiera obiektów – nic do korekty.")
             self.progressBar.setValue(0)
             return
 
-        layer.startEditing()
+        field_indexes = {c: layer.fields().indexFromName(c) for c in columns_to_process}
+        changes = {}
+
         self.progressBar.setMaximum(total)
         self.progressBar.setValue(0)
 
-        updated_count = 0
+        for idx, f in enumerate(features, start=1):
+            fid = f.id()
+            attr_changes = {}
 
-        for idx, feature in enumerate(all_features, start=1):
-            feature_changed = False
+            for col in columns_to_process:
+                val = f[col]
+                if isinstance(val, str):
+                    new_val = val.replace(" ,", ",").replace(", ", ",").rstrip().replace("\xa0", " ").replace("\n", "")
+                    if new_val != val:
+                        attr_changes[field_indexes[col]] = new_val
 
-            for column in columns_to_process:
-                value = feature[column]
-
-                if isinstance(value, str):
-                    new_value = value.replace(" ,", ",")  # space before comma
-                    new_value = new_value.replace(", ", ",")  # space after comma
-                    new_value = new_value.rstrip()  # trailing spaces
-                    new_value = new_value.replace("\xa0", " ")  # non-breaking spaces
-                    new_value = new_value.replace("\n", "")  # newlines
-
-                    if new_value != value:
-                        feature.setAttribute(column, new_value)
-                        feature_changed = True
-
-            if feature_changed:
-                layer.updateFeature(feature)
-                updated_count += 1
+            if attr_changes:
+                changes[fid] = attr_changes
 
             self.progressBar.setValue(idx)
 
-        layer.commitChanges()
-
-        if updated_count == 0:
-            self.tbConsole.append("Nie dokonano żadnych zmian – wszystkie wartości były poprawne.")
+        if changes:
+            layer.startEditing()
+            layer.dataProvider().changeAttributeValues(changes)
+            layer.commitChanges()
+            self.tbConsole.append(f"Zakończono korektę spacji. Zaktualizowano {len(changes)} obiektów.")
         else:
-            self.tbConsole.append(
-                f"Zakończono korektę spacji. Zaktualizowano {updated_count} obiektów."
-            )
+            self.tbConsole.append("Nie dokonano żadnych zmian – wszystkie wartości były poprawne.")
 
     # def pog_zgodnosc_z_planem             TO-DO
 
@@ -1500,33 +1477,21 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def reset_fid_values(self):
         layer = self.iface.activeLayer()
-
-        if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy.")
+        if not layer or "fid" not in layer.fields().names():
+            self.tbConsole.append("Brak warstwy lub pola 'fid'.")
             return
 
-        src = layer.source().lower()
-        if ".gpkg" not in src:
-            self.tbConsole.append("Aktywna warstwa nie pochodzi z pliku GeoPackage (.gpkg).")
-            return
+        idx = layer.fields().indexFromName("fid")
+        changes = {}
 
-        if "fid" not in [f.name() for f in layer.fields()]:
-            self.tbConsole.append("Warstwa nie zawiera kolumny 'fid'.")
-            return
+        for f in layer.getFeatures():
+            changes[f.id()] = {idx: f.id()}
 
-        self.tbConsole.append("Rozpoczynam nadawanie nowych wartości fid...")
+        layer.startEditing()
+        layer.dataProvider().changeAttributeValues(changes)
+        layer.commitChanges()
 
-        if not layer.isEditable():
-            layer.startEditing()
-
-        for feature in layer.getFeatures():
-            new_fid = feature.id()
-            feature["fid"] = new_fid
-            layer.updateFeature(feature)
-
-        layer.updateFields()
-
-        self.tbConsole.append("Zresetowano kolumnę fid.).")
+        self.tbConsole.append("Zresetowano kolumnę fid.")
 
     def numeracja_pol(self):
         self.tbConsole.append("Rozpoczynam numerację wszystkich obiektów...")
@@ -1534,143 +1499,89 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layer = self.iface.activeLayer()
         if not layer:
             self.tbConsole.append("Brak aktywnej warstwy.")
-            if self.progressBar:
-                self.progressBar.setValue(0)
             return
 
-        numeracja_field = "numeracja"
-
-        if numeracja_field not in layer.fields().names():
-            self.tbConsole.append(f"Tworzę brakujące pole '{numeracja_field}'...")
+        field_name = "numeracja"
+        if field_name not in layer.fields().names():
             layer.startEditing()
-            layer.addAttribute(QgsField(numeracja_field, QVariant.String))
+            layer.addAttribute(QgsField(field_name, QVariant.String))
             layer.commitChanges()
+            layer.updateFields()
 
-        layer.updateFields()
+        idx = layer.fields().indexFromName(field_name)
 
-        features = [
-            f for f in layer.getFeatures()
-            if f.geometry() and not f.geometry().isEmpty()
-        ]
-
+        features = [f for f in layer.getFeatures() if f.geometry() and not f.geometry().isEmpty()]
         if not features:
-            self.tbConsole.append("Brak obiektów z geometrią do numeracji.")
+            self.tbConsole.append("Brak obiektów z geometrią.")
             return
 
-        total_features = len(features)
-        self.tbConsole.append(f"Znaleziono {total_features} obiektów do numeracji.")
+        centroids = {f.id(): f.geometry().centroid().asPoint() for f in features}
+        features.sort(key=lambda f: (centroids[f.id()].x(), centroids[f.id()].y()))
 
-        self.progressBar.setMaximum(total_features)
+        changes = {}
+        total = len(features)
+        self.progressBar.setMaximum(total)
         self.progressBar.setValue(0)
 
-        layer.startEditing()
-
-        features_sorted = sorted(
-            features,
-            key=lambda f: (
-                f.geometry().centroid().asPoint().x(),
-                f.geometry().centroid().asPoint().y()
-            )
-        )
-
-        for i, feature in enumerate(features_sorted, start=1):
-            numeracja_value = str(i)
-
-            feature.setAttribute(numeracja_field, numeracja_value)
-            layer.updateFeature(feature)
-
+        for i, f in enumerate(features, start=1):
+            changes[f.id()] = {idx: str(i)}
             self.progressBar.setValue(i)
 
-            if i % 100 == 0 or i == total_features:
-                self.tbConsole.append(f"  Przetworzono {i}/{total_features} obiektów...")
+        layer.startEditing()
+        layer.dataProvider().changeAttributeValues(changes)
+        layer.commitChanges()
 
-        self.tbConsole.append(
-            f"Zakończono numerację wszystkich obiektów. Łącznie ponumerowano {total_features} obiektów."
-        )
+        self.tbConsole.append(f"Zakończono numerację {total} obiektów.")
 
     def numeracja_unikalna(self):
         self.tbConsole.append("Rozpoczynam numerację grup obiektów...")
 
         layer = self.iface.activeLayer()
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy. Wybierz warstwę i spróbuj ponownie.")
-            if self.progressBar:
-                self.progressBar.setValue(0)
+            self.tbConsole.append("Brak aktywnej warstwy.")
             return
 
-        numeracja_field = "numeracja"
         group_field = self.te_numeracja_unikalna.text().strip()
-
-        if not group_field:
-            self.tbConsole.append("Nie podano nazwy kolumny do grupowania.")
+        if not group_field or group_field not in layer.fields().names():
+            self.tbConsole.append("Nieprawidłowe pole grupujące.")
             return
 
-        if group_field not in layer.fields().names():
-            self.tbConsole.append(f"Brak pola '{group_field}' w warstwie.")
-            return
-
-        if numeracja_field not in layer.fields().names():
-            self.tbConsole.append(f"Tworzę brakujące pole '{numeracja_field}'...")
+        num_field = "numeracja"
+        if num_field not in layer.fields().names():
             layer.startEditing()
-            layer.addAttribute(QgsField(numeracja_field, QVariant.String))
+            layer.addAttribute(QgsField(num_field, QVariant.String))
             layer.commitChanges()
             layer.updateFields()
 
-        features = [f for f in layer.getFeatures() if f.geometry() and not f.geometry().isEmpty()]
+        num_idx = layer.fields().indexFromName(num_field)
+        groups = layer.uniqueValues(layer.fields().lookupField(group_field))
 
-        if not features:
-            self.tbConsole.append("Brak obiektów z geometrią do numeracji.")
-            return
-
-        unique_groups = list(layer.uniqueValues(layer.fields().lookupField(group_field)))
-        if not unique_groups:
-            self.tbConsole.append(f"Brak unikalnych wartości w kolumnie '{group_field}'.")
-            return
-
-        self.tbConsole.append(f"Znaleziono {len(unique_groups)} unikalnych grup w kolumnie '{group_field}': {unique_groups}")
-
-        layer.startEditing()
-        self.progressBar.setMaximum(len(unique_groups))
+        self.progressBar.setMaximum(len(groups))
         self.progressBar.setValue(0)
 
+        layer.startEditing()
         total_numbered = 0
-        processed_groups = 0
 
-        for idx, group_value in enumerate(unique_groups, start=1):
-            self.tbConsole.append(f"Przetwarzanie grupy: {group_value}")
-
-            request = QgsFeatureRequest(QgsExpression(f'"{group_field}" = \'{group_value}\''))
-            group_features = [f for f in layer.getFeatures(request) if f.geometry() and not f.geometry().isEmpty()]
-
-            if not group_features:
-                self.tbConsole.append("  Brak obiektów w tej grupie – pomijam.")
-                self.progressBar.setValue(idx)
+        for i, gval in enumerate(groups, start=1):
+            feats = [
+                f for f in layer.getFeatures(QgsFeatureRequest(QgsExpression(f'"{group_field}" = \'{gval}\'')))
+                if f.geometry() and not f.geometry().isEmpty()
+            ]
+            if not feats:
+                self.progressBar.setValue(i)
                 continue
 
-            group_sorted = sorted(
-                group_features,
-                key=lambda f: (f.geometry().centroid().asPoint().x(), f.geometry().centroid().asPoint().y())
-            )
+            centroids = {f.id(): f.geometry().centroid().asPoint() for f in feats}
+            feats.sort(key=lambda f: (centroids[f.id()].x(), centroids[f.id()].y()))
 
-            for i, feature in enumerate(group_sorted, start=1):
-                feature.setAttribute(numeracja_field, str(i))
-                layer.updateFeature(feature)
+            changes = {f.id(): {num_idx: str(j)} for j, f in enumerate(feats, start=1)}
+            layer.dataProvider().changeAttributeValues(changes)
 
-            total_numbered += len(group_sorted)
-            processed_groups += 1
-
-            self.tbConsole.append(f"  Znumerowano {len(group_sorted)} obiektów w grupie '{group_value}'.")
-            self.progressBar.setValue(idx)
+            total_numbered += len(feats)
+            self.progressBar.setValue(i)
 
         layer.commitChanges()
-
-        if processed_groups == 0:
-            self.tbConsole.append("Nie wykonano numeracji – żadna grupa nie spełniała wymagań.")
-        else:
-            self.tbConsole.append(
-                f"Zakończono numerację. Przetworzono {processed_groups} grup, "
-                f"znumerowano {total_numbered} obiektów."
-            )
+        self.tbConsole.append(f"Zakończono numerację. Zaktualizowano {total_numbered} obiektów.")
 
     def import_external(self):
         target_layer = self.layer_area_2180()
