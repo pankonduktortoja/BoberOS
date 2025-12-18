@@ -24,7 +24,7 @@ import os
 import time
 
 from qgis.core import *
-from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsCoordinateTransformContext
+from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsCoordinateTransformContext, QgsWkbTypes, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature
 from qgis.PyQt import *
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import *
@@ -225,6 +225,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_bdot_refresh.clicked.connect(self.populate_bdot_table)
         self.pb_bdot_import.clicked.connect(self.import_selected_bdot_layers)
         self.pb_bdot_uncheck.clicked.connect(self.uncheck_all_bdot)
+        
+        self.pb_anal_wind_pobliska.clicked.connect(self.anal_wind_pobliska)
+        self.pb_anal_wind_build_700.clicked.connect(self.anal_wind_build_700)
+        self.pb_anal_wind_build_700_rad.clicked.connect(self.anal_wind_build_700_rad)
+        self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)
+
        
   
     def save_setting(self, key: str, value: str):
@@ -2026,8 +2032,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Analiza FOP 10 km - koniec\n")
 
-
-
     def anal_adm(self):
         self.tbConsole.append("Analiza ADMINISTRACYJNE - start")
         QtWidgets.QApplication.processEvents()
@@ -2421,8 +2425,284 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         except Exception as e:
             self.tbConsole.append(f"Błąd odkurzania geopaczki: {e}")
 
-    #
+    def wind_area_2180(self):
+        layer = self.wind_area.currentLayer()
+        if layer is None:
+            self.tbConsole.append("Nie wybrano warstwy z elektrowniami.")
+            return None
 
+        if layer.featureCount() == 0:
+            self.tbConsole.append("Wybrana warstwa jest pusta.")
+            return None
+
+        if layer.crs().authid() == "EPSG:2180":
+            return layer
+
+        disp = QgsWkbTypes.displayString(layer.wkbType())
+        uri = f"{disp}?crs=EPSG:2180"
+        mem = QgsVectorLayer(uri, "wind_area_2180_tmp", "memory")
+        mem_dp = mem.dataProvider()
+        mem_dp.addAttributes(layer.fields())
+        mem.updateFields()
+
+        transform = QgsCoordinateTransform(
+            layer.crs(),
+            QgsCoordinateReferenceSystem("EPSG:2180"),
+            QgsProject.instance()
+        )
+
+        feats = []
+        for f in layer.getFeatures():
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+            g = QgsGeometry(g)
+            g.transform(transform)
+            nf = QgsFeature(mem.fields())
+            nf.setGeometry(g)
+            nf.setAttributes(f.attributes())
+            feats.append(nf)
+
+        if not feats:
+            self.tbConsole.append("Nieudana transformacja warstwy z elektrowniami.")
+            return None
+
+        mem_dp.addFeatures(feats)
+        return mem
+
+    def wind_area_buffer_5000(self) -> QgsGeometry | None:
+        area = self.wind_area_2180()
+        if not area:
+            return None
+
+        geom = None
+        for f in area.getFeatures():
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+            g = g.buffer(5000, 8)
+            geom = g if geom is None else geom.combine(g)
+
+        return geom
+
+    def get_matching_teryt_codes_wind(self) -> set[str]:
+        buffer_geom = self.wind_area_buffer_5000()
+        if not buffer_geom:
+            self.tbConsole.append("Brak geometrii bufora 5000 m.")
+            return set()
+
+        powiat_path = os.path.join(
+            self.resource_path.filePath(),
+            "DANE_BDOT", "HELP", "POWIAT_TERYT.gpkg"
+        )
+
+        layer = QgsVectorLayer(powiat_path, "powiat", "ogr")
+        if not layer.isValid():
+            self.tbConsole.append("Nie można wczytać POWIAT_TERYT.")
+            return set()
+
+        bbox = buffer_geom.boundingBox()
+        engine = QgsGeometry.createGeometryEngine(buffer_geom.constGet())
+        engine.prepareGeometry()
+
+        teryt = set()
+        req = QgsFeatureRequest().setFilterRect(bbox)
+
+        for f in layer.getFeatures(req):
+            g = f.geometry()
+            if g and engine.intersects(g.constGet()):
+                teryt.add(str(f["JPT_KOD_JE"]))
+        return teryt
+
+    def wind_spatial_filter(self):
+        buffer_geom = self.wind_area_buffer_5000()
+        if not buffer_geom:
+            return None, None
+
+        bbox = buffer_geom.boundingBox()
+        engine = QgsGeometry.createGeometryEngine(buffer_geom.constGet())
+        engine.prepareGeometry()
+
+        return bbox, engine
+
+    def add_buffer_layer(self, geom: QgsGeometry, name: str):
+        layer = QgsVectorLayer("Polygon?crs=EPSG:2180", name, "memory")
+        pr = layer.dataProvider()
+        pr.addAttributes([QgsField("typ", QVariant.String)])
+        layer.updateFields()
+
+        f = QgsFeature(layer.fields())
+        f.setGeometry(geom)
+        f["typ"] = "strefa"
+        pr.addFeature(f)
+
+        QgsProject.instance().addMapLayer(layer)
+
+    def anal_wind_build_base(self, gpkg_name: str) -> list[QgsFeature]:
+        teryt_codes = self.get_matching_teryt_codes_wind()
+        if not teryt_codes:
+            return []
+
+        bbox, engine = self.wind_spatial_filter()
+        if not bbox:
+            return []
+
+        src = os.path.join(self.resource_path.filePath(), "DANE_BDOT", gpkg_name)
+        layer = QgsVectorLayer(src, "src", "ogr")
+        if not layer.isValid():
+            self.tbConsole.append(f"Błąd wczytania {gpkg_name}")
+            return []
+
+        req = QgsFeatureRequest()
+        req.setFilterRect(bbox)
+        req.setSubsetOfAttributes(layer.fields().names(), layer.fields())
+
+        feats = []
+        for f in layer.getFeatures(req):
+            if str(f["TERYT"]) not in teryt_codes:
+                continue
+
+            g = f.geometry()
+            if g and engine.intersects(g.constGet()):
+                feats.append(f)
+
+        self.tbConsole.append(f"{gpkg_name}: {len(feats)} obiektów po filtrach.")
+        return feats
+
+    def anal_wind_pobliska(self):
+        layer = self.wind_area_2180()
+        if not layer:
+            self.tbConsole.append("Brak wybranej warstwy z elektrowniami wiatrowymi.")
+            return
+
+        buffer_dist = self.sbWindHeight.value() * 10
+
+        geom = None
+        for f in layer.getFeatures():
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+            g = g.buffer(buffer_dist, 5)
+            geom = g if geom is None else geom.combine(g)
+
+        if geom is None:
+            return
+
+        bbox = geom.boundingBox()
+        engine = QgsGeometry.createGeometryEngine(geom.constGet())
+        engine.prepareGeometry()
+
+        gminy_path = os.path.join(
+            self.resource_path.filePath(),
+            "DANE_AKTUALIZOWANE",
+            "ADMINISTRACYJNE",
+            "ADM_Gminy.gpkg"
+        )
+
+        gminy = QgsVectorLayer(gminy_path, "ADM_Gminy", "ogr")
+        if not gminy.isValid():
+            return
+
+        names = set()
+        req = QgsFeatureRequest().setFilterRect(bbox)
+
+        for f in gminy.getFeatures(req):
+            g = f.geometry()
+            if g and engine.intersects(g.constGet()):
+                names.add(str(f["JPT_NAZWA_"]))
+
+        for n in sorted(names):
+            self.tbConsole.append(f"Gmina pobliska: {n}")
+
+    def anal_wind_build_700(self):
+        feats = self.anal_wind_build_base("OT_BUBD_A.gpkg")
+        feats = [f for f in feats if f["KODKST"] == "110"]
+
+        if not feats:
+            self.tbConsole.append("Brak budynków (KODKST=110).")
+            return
+
+        geom = None
+        for f in feats:
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+            g = g.buffer(700, 8)
+            geom = g if geom is None else geom.combine(g)
+
+        if not geom:
+            return
+        self.add_buffer_layer(geom, "Bufor_budynki_mieszkalne_700m")
+        self.tbConsole.append(f"Dodano warstwę z buforem od budynków mieszkalnych.")
+
+    def anal_wind_build_700_rad(self):
+        feats = self.anal_wind_build_base("OT_BUBD_A.gpkg")
+        feats = [f for f in feats if f["KODKST"] == "110"]
+
+        if not feats:
+            self.tbConsole.append("Brak budynków (KODKST=110).")
+            return
+
+        buffer_dist = 700 + self.sbWindRadius.value()
+
+        geom = None
+        for f in feats:
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+            g = g.buffer(buffer_dist, 8)
+            geom = g if geom is None else geom.combine(g)
+
+        if not geom:
+            return
+        self.add_buffer_layer(geom, "Bufor_budynki_mieszkalne_700m_rotor")
+        self.tbConsole.append(f"Dodano warstwę z buforem od budynków mieszkalnych + długość rotora.")
+
+    def anal_wind_elect(self):
+        allowed = {
+            "linia elektroenergetyczna najwyższego napięcia",
+            "linia elektroenergetyczna wysokiego napięcia"
+        }
+
+        feats = self.anal_wind_build_base("OT_SULN_L.gpkg")
+        feats = [f for f in feats if f["RODZAJ"] in allowed]
+
+        if not feats:
+            self.tbConsole.append("Brak linii elektroenergetycznych wysokiego napięcia/najwyższych napięć w sąsiedztwie (5000 m).")
+            return
+
+        buffer_rad = 3 * self.sbWindRadius.value()
+        buffer_h = 2 * self.sbWindHeight.value()
+
+        geom_rad = None
+        geom_h = None
+
+        for f in feats:
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+
+            if buffer_rad > 0:
+                g_rad = g.buffer(buffer_rad, 8)
+                geom_rad = g_rad if geom_rad is None else geom_rad.combine(g_rad)
+
+            if buffer_h > 0:
+                g_h = g.buffer(buffer_h, 8)
+                geom_h = g_h if geom_h is None else geom_h.combine(g_h)
+
+        if geom_rad:
+            self.add_buffer_layer(
+                geom_rad,
+                f"Bufor_linie_elektroenergetyczne_{buffer_rad}m"
+            )
+            self.tbConsole.append(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_rad} m.")
+
+        if geom_h:
+            self.add_buffer_layer(
+                geom_h,
+                f"Bufor_linie_elektroenergetyczne_{buffer_h}m"
+            )
+            self.tbConsole.append(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_h} m.")
 
 
 # xD

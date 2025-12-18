@@ -9,7 +9,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
+    <width>1000</width>
     <height>600</height>
    </rect>
   </property>
@@ -21,13 +21,13 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>800</width>
+    <width>1000</width>
     <height>600</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>800</width>
+    <width>1000</width>
     <height>600</height>
    </size>
   </property>
@@ -46,7 +46,7 @@
     <rect>
      <x>10</x>
      <y>560</y>
-     <width>781</width>
+     <width>981</width>
      <height>31</height>
     </rect>
    </property>
@@ -105,7 +105,7 @@
     <rect>
      <x>10</x>
      <y>9</y>
-     <width>781</width>
+     <width>981</width>
      <height>541</height>
     </rect>
    </property>
@@ -290,14 +290,14 @@ p, li { white-space: pre-wrap; }
       </widget>
       <widget class="QWidget" name="tab_5">
        <attribute name="title">
-        <string>Aktualizuj zasób</string>
+        <string>Aktualizuj</string>
        </attribute>
        <widget class="QWidget" name="verticalLayoutWidget">
         <property name="geometry">
          <rect>
           <x>10</x>
           <y>10</y>
-          <width>501</width>
+          <width>611</width>
           <height>491</height>
          </rect>
         </property>
@@ -511,19 +511,19 @@ p, li { white-space: pre-wrap; }
       </widget>
       <widget class="QWidget" name="tab_6">
        <attribute name="title">
-        <string>Importuj dane z zasobu</string>
+        <string>Importuj z zasobu</string>
        </attribute>
        <widget class="QTabWidget" name="tabWidget_3">
         <property name="geometry">
          <rect>
           <x>10</x>
           <y>0</y>
-          <width>501</width>
+          <width>611</width>
           <height>501</height>
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>4</number>
         </property>
         <widget class="QWidget" name="tab_4">
          <attribute name="title">
@@ -534,7 +534,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -681,7 +681,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -740,7 +740,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>-1</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -869,7 +869,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -985,7 +985,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -1090,12 +1090,12 @@ p, li { white-space: pre-wrap; }
          <rect>
           <x>10</x>
           <y>0</y>
-          <width>501</width>
+          <width>611</width>
           <height>501</height>
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="tab_12">
          <attribute name="title">
@@ -1106,7 +1106,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -1185,7 +1185,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -1207,105 +1207,246 @@ p, li { white-space: pre-wrap; }
       </widget>
       <widget class="QWidget" name="tab_9">
        <attribute name="title">
-        <string>Analizuj dane</string>
+        <string>Analizuj</string>
        </attribute>
-       <widget class="QWidget" name="verticalLayoutWidget_7">
+       <widget class="QTabWidget" name="tabWidget_6">
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>10</y>
-          <width>501</width>
-          <height>491</height>
+          <y>0</y>
+          <width>611</width>
+          <height>501</height>
          </rect>
         </property>
-        <layout class="QVBoxLayout" name="verticalLayout_9">
-         <item>
-          <widget class="QPushButton" name="pb_anal_fop">
-           <property name="text">
-            <string>Analizuj dane FOP</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_anal_fop_10km">
-           <property name="text">
-            <string>Analizuj dane FOP do 10 km</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_anal_oze">
-           <property name="text">
-            <string>Analizuj dane OZE</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_anal_adm">
-           <property name="text">
-            <string>Analizuj dane ADM</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_anal_pig">
-           <property name="text">
-            <string>Analizuj dane PIG</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_anal_wody">
-           <property name="text">
-            <string>Analizuj dane WODY</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_anal_powodz">
-           <property name="text">
-            <string>Analizuj dane POWODZ</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="pb_anal_inne">
-           <property name="text">
-            <string>Analizuj dane INNE</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="verticalSpacer_16">
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>40</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QTextBrowser" name="textBrowser_9">
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>60</height>
-            </size>
-           </property>
-           <property name="html">
-            <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+        <property name="currentIndex">
+         <number>1</number>
+        </property>
+        <widget class="QWidget" name="tab_21">
+         <attribute name="title">
+          <string>Analizuj przecięcia</string>
+         </attribute>
+         <widget class="QWidget" name="verticalLayoutWidget_15">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>601</width>
+            <height>471</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_17">
+           <item>
+            <widget class="QPushButton" name="pb_anal_powodz">
+             <property name="text">
+              <string>Analizuj dane POWODZ</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_fop_10km">
+             <property name="text">
+              <string>Analizuj dane FOP do 10 km</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_pig">
+             <property name="text">
+              <string>Analizuj dane PIG</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_oze">
+             <property name="text">
+              <string>Analizuj dane OZE</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_wody">
+             <property name="text">
+              <string>Analizuj dane WODY</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_inne">
+             <property name="text">
+              <string>Analizuj dane INNE</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_adm">
+             <property name="text">
+              <string>Analizuj dane ADM</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_fop">
+             <property name="text">
+              <string>Analizuj dane FOP</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_16">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser_9">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>60</height>
+              </size>
+             </property>
+             <property name="html">
+              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Narzędzie analizuje obszar (lub bufor w przypadku jego wyboru) pod kątem występowania obiektów w każdym zbiorze oraz reportuje dane dotyczące obiektów.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+        <widget class="QWidget" name="tab_3">
+         <attribute name="title">
+          <string>Analizuj wiatraki</string>
+         </attribute>
+         <widget class="QWidget" name="verticalLayoutWidget_7">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>601</width>
+            <height>471</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_9">
+           <item>
+            <widget class="QLabel" name="label_18">
+             <property name="text">
+              <string>Wybierz warstwę z elektrowniami wiatrowymi</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QgsMapLayerComboBox" name="wind_area"/>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_19">
+             <property name="text">
+              <string>Podaj całkowitą wysokość elektrowni wiatrowej</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QgsSpinBox" name="sbWindHeight">
+             <property name="suffix">
+              <string> m</string>
+             </property>
+             <property name="maximum">
+              <number>999999999</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_20">
+             <property name="text">
+              <string>Podaj promień rotora elektrowni wiatrowej</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QgsSpinBox" name="sbWindRadius">
+             <property name="suffix">
+              <string> m</string>
+             </property>
+             <property name="maximum">
+              <number>999999999</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_wind_pobliska">
+             <property name="text">
+              <string>Analiza - gmina pobliska</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_wind_build_700">
+             <property name="text">
+              <string>Analiza - odległość 700 m od budynków mieszkalnych</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_wind_build_700_rad">
+             <property name="text">
+              <string>Analiza - odległość 700 m + promień rotora od budynków mieszkalnych</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_wind_elect">
+             <property name="text">
+              <string>Analiza - odległość od linii WN i NN (nie wszystkie są przesyłowe!)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_18">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser_13">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>150</height>
+              </size>
+             </property>
+             <property name="html">
+              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;W przypadku warstwy z elektrowniami wiatrowymi można wybrać zarówno warstwę punktową jak i poligonową (np. z placami manewrowo-montażowymi pod elektrownie).&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Dla analizy odległości od linii przesyłowych i budynków mieszkalnych można wybrać &amp;quot;obszar opracowania&amp;quot;, ale w celu precyzyjnej analizy gminy pobliskiej należy wybrać warstwę z elektrowniami.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Analiza - gmina pobliska zwraca raport w konsoli, w pozostałych przypadkach wynikiem analizy jest warstwa tymczasowa.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;W przypadku budynków mieszkalnych brany jest pod uwagę kod KŚT = 110 (budynki mieszkalne).&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Uwaga: analiza dla linii elektroenergetycznych uwzględnia jedynie napięcie, a nie status linii przesyłowej.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
        </widget>
       </widget>
       <widget class="QWidget" name="tab_8">
@@ -1317,12 +1458,12 @@ p, li { white-space: pre-wrap; }
          <rect>
           <x>10</x>
           <y>0</y>
-          <width>501</width>
+          <width>611</width>
           <height>501</height>
          </rect>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="tab_11">
          <attribute name="title">
@@ -1333,7 +1474,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -1402,7 +1543,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -1468,7 +1609,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -1568,7 +1709,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>491</width>
+            <width>601</width>
             <height>471</height>
            </rect>
           </property>
@@ -1628,8 +1769,8 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Wszystkie operacje dzieją się na wybranej geopaczce w sekcji Ustawienia.&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Operacja vacuum zalecana jest po usunięciu znaczących warstw, nie trzeba tego robić np. po zmianie nazwy.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Wszystkie operacje dzieją się na wybranej geopaczce w sekcji Ustawienia. Warstwy należy najpierw załadować przyciskiem załaduj.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Operacja vacuum zalecana jest po usunięciu znaczących warstw, nie trzeba tego robić np. po zmianie nazwy.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
            </item>
@@ -1644,7 +1785,7 @@ p, li { white-space: pre-wrap; }
      <widget class="QTextBrowser" name="tbConsole">
       <property name="maximumSize">
        <size>
-        <width>250</width>
+        <width>340</width>
         <height>16777215</height>
        </size>
       </property>
