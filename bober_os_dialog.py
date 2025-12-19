@@ -1923,14 +1923,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     def import_external(self):
         ref_layer = self.layer_area.currentLayer()
         if not ref_layer or not ref_layer.isValid():
-            self.tbConsole.append("Nie wybrano warstwy referencyjnej (layer_area).")
+            self.tbConsole.append("Nie wybrano warstwy referencyjnej.")
             return
 
         buffer_value = self.sbBufferValue.value()
 
         project_gpkg = self.project_path.filePath()
         if not project_gpkg:
-            self.tbConsole.append("Nie ustawiono project_path.")
+            self.tbConsole.append("Nie ustawiono ścieżki do projektu.")
             return
 
         src_path = self.import_external_path.filePath()
@@ -2054,7 +2054,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     def import_external_filter(self):
         project_gpkg = self.project_path.filePath()
         if not project_gpkg:
-            self.tbConsole.append("Nie ustawiono project_path.")
+            self.tbConsole.append("Nie ustawiono ścieżki do projektu.")
             return
 
         src_path = self.import_external_filter_path.filePath()
@@ -2098,10 +2098,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         expr = QgsExpression(f"\"{field_name}\" = '{safe_value}'")
 
         request = QgsFeatureRequest(expr)
-        request.setNoAttributes()  # 🔥 NIE pobieramy atrybutów dwa razy
-        request.setFlags(QgsFeatureRequest.NoGeometry)  # 🔥 tylko test filtra
+        request.setNoAttributes()
+        request.setFlags(QgsFeatureRequest.NoGeometry)
 
-        # licznik – szybkie oszacowanie (bez geometrii)
         count = 0
         for _ in layer.getFeatures(request):
             count += 1
@@ -2110,7 +2109,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.tbConsole.append("Brak obiektów spełniających warunek.")
             return
 
-        # teraz właściwy request – pełne dane
         request = QgsFeatureRequest(expr)
 
         options = QgsVectorFileWriter.SaveVectorOptions()
