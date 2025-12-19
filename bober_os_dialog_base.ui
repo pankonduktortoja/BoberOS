@@ -113,7 +113,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>4</number>
+       <number>5</number>
       </property>
       <widget class="QWidget" name="tab_10">
        <attribute name="title">
@@ -1463,7 +1463,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_11">
          <attribute name="title">
@@ -1502,6 +1502,56 @@ p, li { white-space: pre-wrap; }
            </item>
            <item>
             <spacer name="verticalSpacer_8">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_22">
+             <property name="text">
+              <string>Wybierz warstwę z terenami mpzp</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QgsMapLayerComboBox" name="mpzp_layer"/>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_24">
+             <property name="text">
+              <string>Wybierz kolumnę z oznaczeniami terenów</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="cb_mpzp_symbol_col"/>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_23">
+             <property name="text">
+              <string>Wybierz warstwę ze strefami planistycznymi POG</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QgsMapLayerComboBox" name="pog_layer"/>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_pog_zgodnosc">
+             <property name="text">
+              <string>Sprawdź zgodność planu miejscowego z POG</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_19">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
              </property>

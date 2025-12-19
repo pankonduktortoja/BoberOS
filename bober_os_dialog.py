@@ -30,7 +30,7 @@ from qgis.PyQt import uic
 from qgis.PyQt.QtCore import *
 from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog
 from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QVariant
 import sqlite3
 from qgis.gui import *
 from datetime import datetime
@@ -110,6 +110,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.project_path.setStorageMode(QgsFileWidget.GetFile)
         self.project_path.setFilter("GeoPackage files (*.gpkg)")
+        
+        self.mpzp_layer.layerChanged.connect(self.populate_mpzp_symbol_columns)
         
         self.project_path.fileChanged.connect(lambda path: self.save_setting("project_path", path))
         saved_path = self.load_setting("project_path")
@@ -200,12 +202,16 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_pog_numeracja.clicked.connect(self.pog_numeracja)
         self.pb_pog_profil.clicked.connect(self.pog_korekta_profilu)
         self.pb_pog_spacje.clicked.connect(self.pog_korekta_spacje)
+        self.pb_pog_zgodnosc.clicked.connect(self.pog_zgodnosc)
+        
         self.pb_style_save_single.clicked.connect(self.style_save_single)
         self.pb_style_save_all.clicked.connect(self.style_save_all)
+        
         self.pb_reset_fid_values.clicked.connect(self.reset_fid_values)
         self.pb_numeracja_pol.clicked.connect(self.numeracja_pol)
         self.pb_numeracja_unikalna.clicked.connect(self.numeracja_unikalna)
         self.pb_import_external.clicked.connect(self.import_external)
+        
         self.pb_anal_fop.clicked.connect(self.anal_fop)
         self.pb_anal_adm.clicked.connect(self.anal_adm)
         self.pb_anal_pig.clicked.connect(self.anal_pig)
@@ -214,9 +220,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_inne.clicked.connect(self.anal_inne)
         self.pb_anal_oze.clicked.connect(self.anal_oze)
         self.pb_anal_fop_10km.clicked.connect(self.anal_fop_10km)
-        
-        
-        
+                
         self.pb_gpkg_load_layers.clicked.connect(self.load_layers)
         self.pb_gpkg_delete_layers.clicked.connect(self.delete_selected_layers)
         self.pb_gpkg_rename_layers.clicked.connect(self.rename_selected_layer)
@@ -231,8 +235,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_wind_build_700_rad.clicked.connect(self.anal_wind_build_700_rad)
         self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)
 
-       
-  
     def save_setting(self, key: str, value: str):
         settings = QSettings()
         settings.setValue(f"bober_os/settings/{key}", value)
@@ -260,7 +262,21 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.labelLayerArea.setText(f"Wybrana warstwa: {layer.name()}")
         else:
             self.labelLayerArea.setText("Brak wybranej warstwy")
-    
+
+    def populate_mpzp_symbol_columns(self):
+        self.cb_mpzp_symbol_col.blockSignals(True)
+        self.cb_mpzp_symbol_col.clear()
+
+        layer = self.mpzp_layer.currentLayer()
+        if not layer:
+            self.cb_mpzp_symbol_col.blockSignals(False)
+            return
+
+        for f in layer.fields():
+            self.cb_mpzp_symbol_col.addItem(f.name())
+
+        self.cb_mpzp_symbol_col.blockSignals(False)
+
     def init_ui_color_customization(self):
         self._ui_color_settings_key = "bober_os/settings/ui_bg_color"
         self._ui_color_default = "rgb(231, 255, 241)"
@@ -1432,7 +1448,236 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         else:
             self.tbConsole.append("Nie dokonano żadnych zmian – wszystkie wartości były poprawne.")
 
-    # def pog_zgodnosc_z_planem             TO-DO
+    def pog_zgodnosc(self):
+        self.tbConsole.append("Analiza zgodności POG z MPZP - start")
+        mpzp_layer = self.mpzp_layer.currentLayer()
+        pog_layer = self.pog_layer.currentLayer()
+        symbol_col = self.cb_mpzp_symbol_col.currentText()
+
+        if not mpzp_layer or not pog_layer or not symbol_col:
+            self.tbConsole.append("Brak warstw lub kolumny symbolu MPZP")
+            return
+
+        if mpzp_layer.crs() != pog_layer.crs():
+            context = QgsProject.instance().transformContext()
+            transform = QgsCoordinateTransform(mpzp_layer.crs(), pog_layer.crs(), context)
+
+            mpzp_mem = QgsVectorLayer(
+                f"{QgsWkbTypes.displayString(mpzp_layer.wkbType())}?crs={pog_layer.crs().authid()}",
+                f"{mpzp_layer.name()}_reproj",
+                "memory"
+            )
+            prov = mpzp_mem.dataProvider()
+            prov.addAttributes(mpzp_layer.fields())
+            mpzp_mem.updateFields()
+
+            feats = []
+            for f in mpzp_layer.getFeatures():
+                g = f.geometry()
+                if not g or g.isEmpty():
+                    continue
+                g = QgsGeometry(g)
+                g.transform(transform)
+
+                nf = QgsFeature(mpzp_mem.fields())
+                nf.setAttributes(f.attributes())
+                nf.setGeometry(g)
+                feats.append(nf)
+
+            if not feats:
+                self.tbConsole.append("Brak geometrii MPZP po transformacji")
+                return
+
+            prov.addFeatures(feats)
+            mpzp_mem.updateExtents()
+            mpzp_layer = mpzp_mem
+
+        out_layer = QgsVectorLayer(
+            "Polygon?crs=" + pog_layer.crs().authid(),
+            "Niezgodności",
+            "memory"
+        )
+        out_prov = out_layer.dataProvider()
+        out_prov.addAttributes([
+            QgsField(symbol_col, QVariant.String),
+            QgsField("profilPodstawowy", QVariant.String),
+            QgsField("profilDodatkowy", QVariant.String),
+            QgsField("symbol", QVariant.String),
+        ])
+        out_layer.updateFields()
+
+        pog_index = QgsSpatialIndex(pog_layer.getFeatures())
+
+        total = mpzp_layer.featureCount()
+        self.progressBar.setMaximum(total)
+        self.progressBar.setValue(0)
+
+        RULES = {
+            "MN":  [("PP", "teren zabudowy mieszkaniowej jednorodzinnej"),
+                    ("PD", "teren zabudowy mieszkaniowej jednorodzinnej")],
+            "MNW": [("PP", "teren zabudowy mieszkaniowej jednorodzinnej"),
+                    ("PD", "teren zabudowy mieszkaniowej jednorodzinnej")],
+            "MNB": [("PP", "teren zabudowy mieszkaniowej jednorodzinnej"),
+                    ("PD", "teren zabudowy mieszkaniowej jednorodzinnej")],
+            "MNS": [("PP", "teren zabudowy mieszkaniowej jednorodzinnej"),
+                    ("PD", "teren zabudowy mieszkaniowej jednorodzinnej")],
+            "MW":  [("PP", "teren zabudowy mieszkaniowej wielorodzinnej")],
+            "MWK": [("PP", "teren zabudowy mieszkaniowej wielorodzinnej")],
+            "MWW": [("PP", "teren zabudowy mieszkaniowej wielorodzinnej")],
+            "ML":  [("PD", "teren zabudowy letniskowej lub rekreacji indywidualnej")],
+            
+            "U":   [("PP", "teren usług"), ("PD", "teren usług")],
+            "UH":  [("PP", "teren usług"), ("PD", "teren usług")],
+            "UHD": [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług handlu detalicznego")],
+            "UHH": [("PP", "teren usług"), ("PD", "teren usług")],
+            "UW":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren handlu wielkopowierzchniowego"), ("PP", "teren handlu wielkopowierzchniowego")],
+            "UL":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług rzemieślniczych")],
+            "UT":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług turystyki")],
+            "UG":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług gastronomii")],
+            "UZ":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług zdrowia i pomocy społecznej")],
+            "UN":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług nauki")],
+            "UE":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług edukacji")],
+            "UEP": [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług edukacji")],
+            "UEO": [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług edukacji")],
+            "US":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług sportu i rekreacji")],
+            "UK":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług kultury i rozrywki")],
+            "UR":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług kultu religijnego")],
+            "UB":  [("PP", "teren usług"), ("PD", "teren usług")],
+            "UA":  [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług biurowych i administracji")],
+            "UAB": [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług biurowych i administracji")],
+            "UAA": [("PP", "teren usług"), ("PD", "teren usług"), ("PD", "teren usług biurowych i administracji")],
+
+            "P":   [("PP", "teren produkcji"), ("PD", "teren produkcji")],
+            "PP":  [("PP", "teren produkcji"), ("PD", "teren produkcji")],
+            "PE":  [("PP", "teren produkcji"), ("PD", "teren produkcji"), 
+                    ("PD", "teren elektrowni wiatrowej"), ("PD", "teren elektrowni słonecznej"),
+                    ("PD", "teren elektrowni geotermalnej"), ("PD", "teren elektrowni wodnej"), 
+                    ("PD", "teren biogazowni")],
+            "PEW": [("PP", "teren produkcji"), ("PD", "teren produkcji"), ("PD", "teren elektrowni wiatrowej")],
+            "PEF": [("PP", "teren produkcji"), ("PD", "teren produkcji"), ("PD", "teren elektrowni słonecznej")],
+            "PS":  [("PP", "teren produkcji"), ("PD", "teren produkcji"), ("PD", "teren składów i magazynów")],
+            "PR":  [("PP", "teren produkcji"), ("PD", "teren produkcji")],
+
+            "G":   [("PP", "teren górnictwa i wydobycia")],
+
+            "RN":  [("PP", "teren rolnictwa z zakazem zabudowy"), ("PD", "teren rolnictwa z zakazem zabudowy")],
+            "RNR": [("PP", "teren rolnictwa z zakazem zabudowy"), ("PD", "teren rolnictwa z zakazem zabudowy")],
+            "RNL": [("PP", "teren rolnictwa z zakazem zabudowy"), ("PD", "teren rolnictwa z zakazem zabudowy")],
+            "RZ":  [("PP", "teren zabudowy zagrodowej"), ("PD", "teren wielkotowarowej produkcji rolnej")],
+            "RZM": [("PP", "teren zabudowy zagrodowej")],
+            "RZP": [("PP", "teren produkcji w gospodarstwach rolnych")],
+            "RZW": [("PP", "teren wielkotowarowej produkcji rolnej"), ("PD", "teren wielkotowarowej produkcji rolnej")],
+            "RA":  [("PP", "teren akwakultury i obsługi rybactwa")],
+
+            "W":   [("PP", "teren wód"), ("PD", "teren wód")],
+            "WM":  [("PP", "teren wód"), ("PD", "teren wód")],
+            "WS":  [("PP", "teren wód"), ("PD", "teren wód")],
+
+            "L":   [("PP", "teren lasu"), ("PD", "teren lasu")],
+
+            "Z":   [("PP", "teren plaży")],
+            "ZN":  [("PP", "teren zieleni naturalnej"), ("PD", "teren zieleni naturalnej")],
+            "ZP":  [("PP", "teren zieleni urządzonej"), ("PD", "teren zieleni urządzonej")],
+            "ZPW": [("PP", "teren zieleni urządzonej"), ("PD", "teren zieleni urządzonej")],
+            "ZPN": [("PP", "teren zieleni urządzonej"), ("PD", "teren zieleni urządzonej")],
+            "ZB":  [("PP", "teren plaży")],
+
+            "C":   [("PP", "teren cmentarza")],
+            "CC":  [("PP", "teren cmentarza")],
+            "CZ":  [("PP", "teren cmentarza")],
+        }
+
+        def always_match(sym):
+            return sym == "ZD" or sym.startswith("K") or sym.startswith("I")
+
+        def never_match(sym):
+            return sym == "M"
+
+        def check_symbol(sym, pp, pd):
+            if sym == "RZ":
+                for where, txt in RULES[sym]:
+                    if where == "PP" and (not pp or txt not in pp):
+                        return False
+                    if where == "PD" and (not pd or txt not in pd):
+                        return False
+                return True
+            elif sym == "PE":
+                if pp and "teren produkcji" in pp:
+                    return True
+                if pd and "teren produkcji" in pd:
+                    return True
+                energy_types = [
+                    "teren elektrowni wiatrowej",
+                    "teren elektrowni słonecznej",
+                    "teren elektrowni geotermalnej",
+                    "teren elektrowni wodnej",
+                    "teren biogazowni"
+                ]
+                if pd:
+                    if all(et in pd for et in energy_types):
+                        return True
+                return False
+
+            if always_match(sym):
+                return True
+            if never_match(sym):
+                return False
+            if sym not in RULES:
+                return False
+
+            for where, txt in RULES[sym]:
+                if where == "PP" and pp and txt in pp:
+                    return True
+                if where == "PD" and pd and txt in pd:
+                    return True
+            return False
+
+        for i, mpzp_f in enumerate(mpzp_layer.getFeatures()):
+            self.progressBar.setValue(i + 1)
+
+            geom = mpzp_f.geometry()
+            if not geom or geom.isEmpty():
+                continue
+
+            raw = mpzp_f[symbol_col]
+            if not raw:
+                continue
+
+            raw = str(raw)
+            raw = raw.lstrip("0123456789")
+            symbols = raw.split("-")
+
+            pog_ids = pog_index.intersects(geom.boundingBox())
+            for pid in pog_ids:
+                pog_f = pog_layer.getFeature(pid)
+                pog_geom = pog_f.geometry()
+                if not pog_geom or not geom.intersects(pog_geom):
+                    continue
+
+                inter = geom.intersection(pog_geom)
+                if not inter or inter.isEmpty():
+                    continue
+
+                pp = pog_f["profilPodstawowy"]
+                pd = pog_f["profilDodatkowy"]
+                pog_sym = pog_f["symbol"] if "symbol" in pog_f.fields().names() else None
+
+                failed = False
+                for s in symbols:
+                    if not check_symbol(s, pp, pd):
+                        failed = True
+                        break
+
+                if failed:
+                    nf = QgsFeature(out_layer.fields())
+                    nf.setGeometry(inter)
+                    nf.setAttributes([raw, pp, pd, pog_sym])
+                    out_prov.addFeature(nf)
+
+        out_layer.updateExtents()
+        QgsProject.instance().addMapLayer(out_layer)
+
+        self.tbConsole.append("Analiza zgodności POG z MPZP - koniec\n")
 
     def style_save_single(self):
         self.progressBar.reset()
