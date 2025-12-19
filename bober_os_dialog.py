@@ -112,6 +112,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.project_path.setFilter("GeoPackage files (*.gpkg)")
         
         self.mpzp_layer.layerChanged.connect(self.populate_mpzp_symbol_columns)
+        self.numeracja_layer.layerChanged.connect(self.populate_numeracja_unikalna_columns)
         
         self.project_path.fileChanged.connect(lambda path: self.save_setting("project_path", path))
         saved_path = self.load_setting("project_path")
@@ -276,6 +277,20 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.cb_mpzp_symbol_col.addItem(f.name())
 
         self.cb_mpzp_symbol_col.blockSignals(False)
+    
+    def populate_numeracja_unikalna_columns(self):
+        self.cb_numeracja_unikalna.blockSignals(True)
+        self.cb_numeracja_unikalna.clear()
+
+        layer = self.numeracja_layer.currentLayer()
+        if not layer:
+            self.cb_numeracja_unikalna.blockSignals(False)
+            return
+
+        for f in layer.fields():
+            self.cb_numeracja_unikalna.addItem(f.name())
+
+        self.cb_numeracja_unikalna.blockSignals(False)    
 
     def init_ui_color_customization(self):
         self._ui_color_settings_key = "bober_os/settings/ui_bg_color"
@@ -1840,12 +1855,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     def numeracja_unikalna(self):
         self.tbConsole.append("Rozpoczynam numerację grup obiektów...")
 
-        layer = self.iface.activeLayer()
+        layer = self.numeracja_layer.currentLayer()
         if not layer:
             self.tbConsole.append("Brak aktywnej warstwy.")
             return
 
-        group_field = self.te_numeracja_unikalna.text().strip()
+        group_field = self.cb_numeracja_unikalna.currentText()
         if not group_field or group_field not in layer.fields().names():
             self.tbConsole.append("Nieprawidłowe pole grupujące.")
             return

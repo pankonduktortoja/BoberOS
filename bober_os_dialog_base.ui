@@ -1463,7 +1463,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>3</number>
         </property>
         <widget class="QWidget" name="tab_11">
          <attribute name="title">
@@ -1642,8 +1642,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Narzędzie zapisuje styl aktywnej warstwy wektorowej do geopaczki, która jest jej źródłem.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Zapisz styl w gpkg dla wszystkich warstw&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Nardzędzie zapisuje styl wszystkich warstw w projekcie do odpowiadających im geopaczek. &lt;span style=&quot; font-weight:600;&quot;&gt;Uwaga: może nadpisać zapisane już style.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Nardzędzie zapisuje styl wszystkich warstw w projekcie do odpowiadających im geopaczek. &lt;span style=&quot; font-weight:600;&quot;&gt;Uwaga: może nadpisać zapisane już style.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
            </item>
@@ -1699,18 +1698,24 @@ p, li { white-space: pre-wrap; }
             </spacer>
            </item>
            <item>
-            <widget class="QLabel" name="label_15">
+            <widget class="QLabel" name="label_25">
              <property name="text">
-              <string>Wpisz nazwę kolumny z wartościami do filtru</string>
+              <string>Wybierz warstwę do numeracji unikalnej</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="te_numeracja_unikalna">
-             <property name="clearButtonEnabled">
-              <bool>true</bool>
+            <widget class="QgsMapLayerComboBox" name="numeracja_layer"/>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_15">
+             <property name="text">
+              <string>Wybierz kolumnę z wartościami do filtru</string>
              </property>
             </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="cb_numeracja_unikalna"/>
            </item>
            <item>
             <widget class="QPushButton" name="pb_numeracja_unikalna">
@@ -1734,6 +1739,12 @@ p, li { white-space: pre-wrap; }
            </item>
            <item>
             <widget class="QTextBrowser" name="textBrowser_4">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>200</height>
+              </size>
+             </property>
              <property name="html">
               <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1743,7 +1754,9 @@ p, li { white-space: pre-wrap; }
 &lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Resetuj kolumnę fid w .gpkg - ustawia na nowo wartości w kolumnie fid, gdy któraś z nich została zmieniona i uniemożliwia to zapis warstwy.&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Numeracja wszystkich obiektów w warstwie - tworzy w aktywnej warstwie kolumnę &amp;quot;numeracja&amp;quot; rozwiązując problem komiwojażera (tak jak w numeracji terenów POG).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Numeracja wszystkich obiektów w warstwie - tworzy w aktywnej warstwie kolumnę &amp;quot;numeracja&amp;quot; rozwiązując problem komiwojażera (tak jak w numeracji terenów POG).&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Numeracja obiektów wg wartości unikalnych - działa jak funkcja wyżej, lecz numeracja rozpoczyna się od nowa w obrębie każdej wartości unikalnej.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
            </item>
@@ -1811,7 +1824,7 @@ p, li { white-space: pre-wrap; }
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>60</height>
+               <height>70</height>
               </size>
              </property>
              <property name="html">
