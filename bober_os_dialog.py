@@ -114,6 +114,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.mpzp_layer.layerChanged.connect(self.populate_mpzp_symbol_columns)
         self.numeracja_layer.layerChanged.connect(self.populate_numeracja_unikalna_columns)
         
+        
         self.project_path.fileChanged.connect(lambda path: self.save_setting("project_path", path))
         saved_path = self.load_setting("project_path")
         if saved_path:
@@ -212,6 +213,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_numeracja_pol.clicked.connect(self.numeracja_pol)
         self.pb_numeracja_unikalna.clicked.connect(self.numeracja_unikalna)
         self.pb_import_external.clicked.connect(self.import_external)
+        self.import_external_filter_path.fileChanged.connect(self.populate_import_external_filter_columns)
+        self.pb_import_external_filter.clicked.connect(self.import_external_filter)
         
         self.pb_anal_fop.clicked.connect(self.anal_fop)
         self.pb_anal_adm.clicked.connect(self.anal_adm)
@@ -277,6 +280,21 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.cb_mpzp_symbol_col.addItem(f.name())
 
         self.cb_mpzp_symbol_col.blockSignals(False)
+
+    def populate_import_external_filter_columns(self):
+        self.cb_import_external_filter.clear()
+
+        src_path = self.import_external_filter_path.filePath()
+        if not src_path or not os.path.exists(src_path):
+            return
+
+        layer = QgsVectorLayer(src_path, "src", "ogr")
+        if not layer.isValid():
+            self.tbConsole.append("Nie można wczytać warstwy do filtrowania.")
+            return
+
+        for field in layer.fields():
+            self.cb_import_external_filter.addItem(field.name())
     
     def populate_numeracja_unikalna_columns(self):
         self.cb_numeracja_unikalna.blockSignals(True)
@@ -1903,70 +1921,78 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append(f"Zakończono numerację. Zaktualizowano {total_numbered} obiektów.")
 
     def import_external(self):
-        target_layer = self.layer_area_2180()
-        if not target_layer:
+        ref_layer = self.layer_area.currentLayer()
+        if not ref_layer or not ref_layer.isValid():
             self.tbConsole.append("Nie wybrano warstwy referencyjnej (layer_area).")
             return
 
-
         buffer_value = self.sbBufferValue.value()
-        target_crs = QgsCoordinateReferenceSystem("EPSG:2180")
-
-        if buffer_value > 0:
-            buffer_layer = QgsVectorLayer(f"Polygon?crs={target_crs.authid()}", "buffer", "memory")
-            buffer_provider = buffer_layer.dataProvider()
-            buffer_provider.addAttributes(target_layer.fields())
-            buffer_layer.updateFields()
-
-            feats = []
-            xform_buffer = QgsCoordinateTransform(target_layer.crs(), target_crs, QgsProject.instance())
-            for f in target_layer.getFeatures():
-                geom = QgsGeometry(f.geometry())
-                if geom:
-                    geom.transform(xform_buffer)
-                    buffered = geom.buffer(buffer_value, 5)
-                    new_feat = QgsFeature(buffer_layer.fields())
-                    new_feat.setGeometry(buffered)
-                    feats.append(new_feat)
-            buffer_provider.addFeatures(feats)
-            buffer_layer.updateExtents()
-            filter_geom = buffer_layer
-        else:
-            filter_geom = QgsVectorLayer(f"{QgsWkbTypes.displayString(target_layer.wkbType())}?crs={target_crs.authid()}",
-                                         "filter_layer", "memory")
-            filter_provider = filter_geom.dataProvider()
-            filter_provider.addAttributes(target_layer.fields())
-            filter_geom.updateFields()
-
-            xform_filter = QgsCoordinateTransform(target_layer.crs(), target_crs, QgsProject.instance())
-            feats = []
-            for f in target_layer.getFeatures():
-                geom = QgsGeometry(f.geometry())
-                if geom:
-                    geom.transform(xform_filter)
-                    new_feat = QgsFeature(filter_geom.fields())
-                    for field in target_layer.fields().names():
-                        new_feat[field] = f[field]
-                    new_feat.setGeometry(geom)
-                    feats.append(new_feat)
-            filter_provider.addFeatures(feats)
-            filter_geom.updateExtents()
-
-        if filter_geom.featureCount() == 0:
-            self.tbConsole.append("Brak funkcji w layer_area lub jego buforze. Import przerwany.")
-            QtWidgets.QApplication.processEvents()
-            return
 
         project_gpkg = self.project_path.filePath()
         if not project_gpkg:
-            self.tbConsole.append("Nie ustawiono ścieżki do paczki projektu (project_path).")
-            QtWidgets.QApplication.processEvents()
+            self.tbConsole.append("Nie ustawiono project_path.")
             return
 
         src_path = self.import_external_path.filePath()
         if not src_path or not os.path.exists(src_path):
-            self.tbConsole.append("Nie wybrano pliku wektorowego lub plik nie istnieje.")
-            QtWidgets.QApplication.processEvents()
+            self.tbConsole.append("Nie wybrano poprawnej warstwy źródłowej.")
+            return
+
+        input_layer = QgsVectorLayer(src_path, "input", "ogr")
+        if not input_layer.isValid():
+            self.tbConsole.append("Nie można wczytać warstwy wejściowej.")
+            return
+        input_crs = input_layer.crs()
+
+        if not input_crs.isValid():
+            chosen_crs = self.crs_import_filter_widget.crs()
+            if not chosen_crs.isValid():
+                self.tbConsole.append(
+                    "Warstwa importowana ma nieznany CRS. "
+                    "Wybierz CRS i uruchom ponownie."
+                )
+                return
+
+            input_layer.setCrs(chosen_crs)
+            input_crs = chosen_crs
+            self.tbConsole.append(f"Ustawiono CRS: {input_crs.authid()}")
+
+        self.crs_import_filter_widget.setCrs(QgsCoordinateReferenceSystem())
+
+        need_transform = ref_layer.crs() != input_crs
+        if need_transform:
+            xform = QgsCoordinateTransform(
+                ref_layer.crs(),
+                input_crs,
+                QgsProject.instance()
+            )
+        self.tbConsole.append("Budowanie indeksu przestrzennego…")
+        QtWidgets.QApplication.processEvents()
+
+        index = QgsSpatialIndex()
+        ref_geoms = {}
+
+        for f in ref_layer.getFeatures():
+            geom = f.geometry()
+            if not geom:
+                continue
+
+            geom = QgsGeometry(geom)
+
+            if need_transform:
+                geom.transform(xform)
+
+            if buffer_value > 0:
+                geom = geom.buffer(buffer_value, 5)
+            idx_feat = QgsFeature()
+            idx_feat.setId(f.id())
+            idx_feat.setGeometry(geom)
+
+            index.addFeature(idx_feat)
+            ref_geoms[f.id()] = geom
+
+        if not ref_geoms:
+            self.tbConsole.append("Warstwa referencyjna nie zawiera geometrii.")
             return
 
         custom_name = self.te_import_external_name.text().strip()
@@ -1977,73 +2003,147 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             layer_name += f"_bufor{buffer_value}"
 
         if self.cb_date_suffix.isChecked():
-            date_suffix = datetime.now().strftime("%Y_%m_%d")
-            layer_name += f"_{date_suffix}"
+            layer_name += "_" + datetime.now().strftime("%Y_%m_%d")
 
-        self.tbConsole.append(f"Przetwarzanie: {os.path.basename(src_path)} jako {layer_name}")
+        self.tbConsole.append(f"Import: {layer_name}")
         QtWidgets.QApplication.processEvents()
-
-        layer = QgsVectorLayer(src_path, "input", "ogr")
-        if not layer.isValid():
-            self.tbConsole.append(f"Nie można wczytać warstwy: {src_path}")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        mem_layer = QgsVectorLayer(f"{QgsWkbTypes.displayString(layer.wkbType())}?crs={target_crs.authid()}",
-                                   layer_name, "memory")
-        mem_provider = mem_layer.dataProvider()
-        mem_provider.addAttributes(layer.fields())
-        mem_layer.updateFields()
-
-        xform = QgsCoordinateTransform(layer.crs(), target_crs, QgsProject.instance())
-
-        feats_to_add = []
-        for f in layer.getFeatures():
-            geom = QgsGeometry(f.geometry())
-            if geom:
-                geom.transform(xform)
-
-                for filter_feat in filter_geom.getFeatures():
-                    filter_geom_obj = filter_feat.geometry()
-                    if filter_geom_obj and geom.intersects(filter_geom_obj):
-                        new_feat = QgsFeature(mem_layer.fields())
-                        for field in layer.fields().names():
-                            new_feat[field] = f[field]
-                        new_feat.setGeometry(geom)
-                        feats_to_add.append(new_feat)
-                        break
-
-        if not feats_to_add:
-            self.tbConsole.append(f"Pominięto {layer_name} - brak funkcji po przefiltrowaniu")
-            QtWidgets.QApplication.processEvents()
-            return
-
-        mem_provider.addFeatures(feats_to_add)
-        mem_layer.updateExtents()
-
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = "GPKG"
         options.layerName = layer_name
         options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
         options.encoding = "UTF-8"
 
-        error = QgsVectorFileWriter.writeAsVectorFormatV2(
-            mem_layer,
+        writer = QgsVectorFileWriter.create(
             project_gpkg,
+            input_layer.fields(),
+            input_layer.wkbType(),
+            input_layer.crs(),
             QgsProject.instance().transformContext(),
             options
         )
-        if error[0] == QgsVectorFileWriter.NoError:
-            self.tbConsole.append(f"Dodano warstwę: {layer_name} do {project_gpkg}")
-        else:
-            self.tbConsole.append(f"Błąd zapisu: {error}")
-        QtWidgets.QApplication.processEvents()
+
+        if writer.hasError() != QgsVectorFileWriter.NoError:
+            self.tbConsole.append(writer.errorMessage())
+            return
+
+        added = 0
+
+        for f in input_layer.getFeatures():
+            geom = f.geometry()
+            if not geom:
+                continue
+
+            candidate_ids = index.intersects(geom.boundingBox())
+            if not candidate_ids:
+                continue
+
+            for fid in candidate_ids:
+                if geom.intersects(ref_geoms[fid]):
+                    writer.addFeature(f)
+                    added += 1
+                    break
+        del writer
+        if added == 0:
+            self.tbConsole.append(f"Pominięto {layer_name} – brak przecięć.")
+            return
 
         self.progressBar.setValue(100)
+        self.tbConsole.append(f"Dodano {added} obiektów.")
+        self.tbConsole.append("Operacja zakończona.\n")
+        
+    def import_external_filter(self):
+        project_gpkg = self.project_path.filePath()
+        if not project_gpkg:
+            self.tbConsole.append("Nie ustawiono project_path.")
+            return
+
+        src_path = self.import_external_filter_path.filePath()
+        if not src_path or not os.path.exists(src_path):
+            self.tbConsole.append("Nie wybrano poprawnej warstwy źródłowej.")
+            return
+
+        field_name = self.cb_import_external_filter.currentText()
+        if not field_name:
+            self.tbConsole.append("Nie wybrano kolumny do filtrowania.")
+            return
+
+        filter_value = self.le_filter.text().strip()
+        if filter_value == "":
+            self.tbConsole.append("Nie podano wartości filtra.")
+            return
+
+        layer = QgsVectorLayer(src_path, "src", "ogr")
+        if not layer.isValid():
+            self.tbConsole.append("Nie można wczytać warstwy źródłowej.")
+            return
+
+        if field_name not in layer.fields().names():
+            self.tbConsole.append(f"Kolumna '{field_name}' nie istnieje.")
+            return
+
+        # output name
+        base_name = self.te_import_external_filter_name.text().strip()
+        if not base_name:
+            base_name = os.path.splitext(os.path.basename(src_path))[0]
+
+        if self.cb_date__filter_suffix.isChecked():
+            base_name += "_" + datetime.now().strftime("%Y_%m_%d")
+
+        self.tbConsole.append(
+            f"Importuję obiekty gdzie {field_name} = '{filter_value}' → {base_name}"
+        )
         QtWidgets.QApplication.processEvents()
 
-        self.tbConsole.append("Operacja zakończona.\n")
-        QtWidgets.QApplication.processEvents()
+        safe_value = filter_value.replace("'", "''")
+        expr = QgsExpression(f"\"{field_name}\" = '{safe_value}'")
+
+        request = QgsFeatureRequest(expr)
+        request.setNoAttributes()  # 🔥 NIE pobieramy atrybutów dwa razy
+        request.setFlags(QgsFeatureRequest.NoGeometry)  # 🔥 tylko test filtra
+
+        # licznik – szybkie oszacowanie (bez geometrii)
+        count = 0
+        for _ in layer.getFeatures(request):
+            count += 1
+
+        if count == 0:
+            self.tbConsole.append("Brak obiektów spełniających warunek.")
+            return
+
+        # teraz właściwy request – pełne dane
+        request = QgsFeatureRequest(expr)
+
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = "GPKG"
+        options.layerName = base_name
+        options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+        options.encoding = "UTF-8"
+
+        writer = QgsVectorFileWriter.create(
+            project_gpkg,
+            layer.fields(),
+            layer.wkbType(),
+            layer.crs(),
+            QgsProject.instance().transformContext(),
+            options
+        )
+
+        processed = 0
+        self.progressBar.setValue(0)
+
+        for f in layer.getFeatures(request):
+            writer.addFeature(f)
+            processed += 1
+
+            if processed % 200 == 0:
+                self.progressBar.setValue(int(processed / count * 100))
+                QtWidgets.QApplication.processEvents()
+
+        del writer
+
+        self.progressBar.setValue(100)
+        self.tbConsole.append(f"Dodano {processed} obiektów.")
+        self.tbConsole.append("Import zakończony.\n")
 
     def report_intersections(
         self,

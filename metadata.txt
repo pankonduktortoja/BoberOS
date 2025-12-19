@@ -6,7 +6,7 @@
 name=BoberOS
 qgisMinimumVersion=3.34
 description=A comprehensive tool for all your needs - Bober Operating System
-version=1.0
+version=1.1
 author=Bartosz Łęczycki
 email=bartosz.leczycki98@gmail.com
 
