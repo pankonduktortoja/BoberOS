@@ -32,6 +32,7 @@ from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog
 from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox
 from PyQt5.QtCore import Qt, QVariant
 import sqlite3
+import processing
 from qgis.gui import *
 from datetime import datetime
 from qgis.utils import iface
@@ -247,7 +248,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_wind_build_700_rad.clicked.connect(self.anal_wind_build_700_rad)
         self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)
         
-        self.pb_anal_pog_flood_building.clicked.connect(self.anal_pog_flood_building)
+        self.pb_anal_pog_flood_buildings.clicked.connect(self.anal_pog_flood_buildings)
+        self.pb_anal_pog_all_buildings.clicked.connect(self.anal_pog_all_buildings)
 
 
     def save_setting(self, key: str, value: str):
@@ -3087,20 +3089,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             )
             self.tbConsole.append(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_h} m.")
 
-    def anal_pog_flood_building(self):
-        from qgis.core import (
-            QgsProject,
-            QgsVectorLayer,
-            QgsField,
-            QgsProcessingFeedback
-        )
-        from PyQt5.QtWidgets import QInputDialog, QMessageBox
-        import processing
+    def anal_pog_building_core(self, use_flood: bool):
 
         def report(msg):
             self.tbConsole.append(msg)
-
-        report("Rozpoczęto analizę: budynki na terenach zagrożenia powodzią")
+        if use_flood:
+            report("Rozpoczynam obliczanie wskaźników dla działek z budynkami zagrożonymi powodzią - wybór warstw")
+        else:
+            report("Rozpoczynam obliczanie wskaźników dla wszystkich działek z budynkami - wybór warstw")
 
         feedback = QgsProcessingFeedback()
         project = QgsProject.instance()
@@ -3108,23 +3104,16 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         def select_layer(msg):
             layers = [l for l in project.mapLayers().values() if isinstance(l, QgsVectorLayer)]
             if not layers:
-                report("Błąd: brak warstw wektorowych w projekcie")
                 QMessageBox.critical(None, "Error", "Brak warstw wektorowych w projekcie")
                 raise RuntimeError
-
             names = [l.name() for l in layers]
             name, ok = QInputDialog.getItem(None, "Wybór warstwy", msg, names, 0, False)
             if not ok:
-                report("Przerwano wybór warstwy")
                 raise RuntimeError
-
-            layer = project.mapLayersByName(name)[0]
-            report(f"Wybrano warstwę: {layer.name()}")
-            return layer
+            return project.mapLayersByName(name)[0]
 
         def ensure_epsg2180(layer):
             if layer.crs().authid() != "EPSG:2180":
-                report(f"Reprojekcja warstwy {layer.name()} do EPSG:2180")
                 return processing.run(
                     "native:reprojectlayer",
                     {
@@ -3139,71 +3128,50 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         try:
             budynki = ensure_epsg2180(select_layer("Wybierz warstwę z budynkami (BDOT10k)"))
             dzialki = ensure_epsg2180(select_layer("Wybierz warstwę z działkami (GML)"))
-            powodz  = ensure_epsg2180(select_layer("Wybierz warstwę z zagrożeniem powodzią"))
+            powodz  = ensure_epsg2180(select_layer("Wybierz warstwę z zagrożeniem powodzią")) if use_flood else None
             strefy  = ensure_epsg2180(select_layer("Wybierz warstwę ze strefami planistycznymi"))
         except RuntimeError:
             report("Analiza przerwana na etapie wyboru warstw")
             return
 
-        if budynki.fields().indexOf("LICZBAKONDYGNACJI") == -1:
-            report("Błąd: brak pola LICZBAKONDYGNACJI w warstwie budynków")
-            return
+        if use_flood:
+            bud_touch = processing.run(
+                "native:extractbylocation",
+                {"INPUT": budynki, "PREDICATE": [0], "INTERSECT": powodz, "OUTPUT": "memory:"},
+                feedback=feedback
+            )["OUTPUT"]
 
-        if dzialki.fields().indexOf("id_dzialki") == -1:
-            report("Błąd: brak pola id_dzialki w warstwie działek")
-            return
+            bud_flood = processing.run(
+                "native:intersection",
+                {"INPUT": bud_touch, "OVERLAY": powodz, "OUTPUT": "memory:"},
+                feedback=feedback
+            )["OUTPUT"]
 
-        if strefy.fields().indexOf("symbol") == -1 or strefy.fields().indexOf("oznaczenie") == -1:
-            report("Błąd: brak pól symbol lub oznaczenie w warstwie stref")
-            return
+            bud_flood.startEditing()
+            if bud_flood.fields().indexOf("flood_area") == -1:
+                bud_flood.dataProvider().addAttributes([QgsField("flood_area", 6, "double")])
+            bud_flood.updateFields()
 
-        report("Rozpoczęto analizę przestrzenną")
+            idx_fa = bud_flood.fields().indexOf("flood_area")
+            fa_updates = {}
+            for f in bud_flood.getFeatures():
+                fa_updates[f.id()] = { idx_fa: f.geometry().area() }
+            bud_flood.dataProvider().changeAttributeValues(fa_updates)
+            bud_flood.commitChanges()
 
-        bud_touch = processing.run(
-            "native:extractbylocation",
-            {"INPUT": budynki, "PREDICATE": [0], "INTERSECT": powodz, "OUTPUT": "memory:"},
-            feedback=feedback
-        )["OUTPUT"]
+            bud_flood_ok = processing.run(
+                "native:extractbyexpression",
+                {"INPUT": bud_flood, "EXPRESSION": '"flood_area" >= 0.1', "OUTPUT": "memory:"},
+                feedback=feedback
+            )["OUTPUT"]
 
-        if bud_touch.featureCount() == 0:
-            report("Brak budynków w zasięgu obszarów zagrożenia powodzią")
-            return
-
-        report(f"Budynki w strefach powodzi: {bud_touch.featureCount()}")
-
-        bud_flood = processing.run(
-            "native:intersection",
-            {"INPUT": bud_touch, "OVERLAY": powodz, "OUTPUT": "memory:"},
-            feedback=feedback
-        )["OUTPUT"]
-
-        bud_flood.startEditing()
-        if bud_flood.fields().indexOf("flood_area") == -1:
-            bud_flood.dataProvider().addAttributes([QgsField("flood_area", 6, "double")])
-        bud_flood.updateFields()
-
-        idx_fa = bud_flood.fields().indexOf("flood_area")
-        for f in bud_flood.getFeatures():
-            bud_flood.changeAttributeValue(f.id(), idx_fa, f.geometry().area())
-        bud_flood.commitChanges()
-
-        bud_flood_ok = processing.run(
-            "native:extractbyexpression",
-            {"INPUT": bud_flood, "EXPRESSION": '"flood_area" >= 0.1', "OUTPUT": "memory:"},
-            feedback=feedback
-        )["OUTPUT"]
-
-        dzialki_kwal = processing.run(
-            "native:extractbylocation",
-            {"INPUT": dzialki, "PREDICATE": [0], "INTERSECT": bud_flood_ok, "OUTPUT": "memory:"},
-            feedback=feedback
-        )["OUTPUT"]
-
-        if dzialki_kwal.featureCount() == 0:
-            report("Brak działek z budynkami w strefach powodzi")
-            return
-
-        report(f"Działki zakwalifikowane: {dzialki_kwal.featureCount()}")
+            dzialki_kwal = processing.run(
+                "native:extractbylocation",
+                {"INPUT": dzialki, "PREDICATE": [0], "INTERSECT": bud_flood_ok, "OUTPUT": "memory:"},
+                feedback=feedback
+            )["OUTPUT"]
+        else:
+            dzialki_kwal = dzialki
 
         bud_na_dzialkach = processing.run(
             "native:extractbylocation",
@@ -3218,45 +3186,56 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )["OUTPUT"]
 
         split.startEditing()
-        for fld in ["powbud", "powcalk"]:
-            if split.fields().indexOf(fld) == -1:
-                split.dataProvider().addAttributes([QgsField(fld, 6, "double")])
+        if split.fields().indexOf("powbud") == -1:
+            split.dataProvider().addAttributes([QgsField("powbud", 6, "double")])
+        if split.fields().indexOf("powcalk") == -1:
+            split.dataProvider().addAttributes([QgsField("powcalk", 6, "double")])
         split.updateFields()
 
         idx_pb = split.fields().indexOf("powbud")
         idx_pc = split.fields().indexOf("powcalk")
         idx_k  = split.fields().indexOf("LICZBAKONDYGNACJI")
 
+        split_updates = {}
         for f in split.getFeatures():
-            area = f.geometry().area()
-            k = f[idx_k] if idx_k != -1 and f[idx_k] else 0
-            split.changeAttributeValue(f.id(), idx_pb, area)
-            split.changeAttributeValue(f.id(), idx_pc, area * k)
+            a = f.geometry().area()
+            k = f[idx_k] or 0
+            split_updates[f.id()] = { idx_pb: a, idx_pc: a * k }
+        split.dataProvider().changeAttributeValues(split_updates)
         split.commitChanges()
 
         agg = {}
         for f in split.getFeatures():
             pid = f["id_dzialki"]
             agg.setdefault(pid, [0.0, 0.0])
-            agg[pid][0] += f["powbud"] or 0
-            agg[pid][1] += f["powcalk"] or 0
+            agg[pid][0] += f["powbud"]
+            agg[pid][1] += f["powcalk"]
 
         dzialki_kwal.startEditing()
-        for fld in ["powbud_sum", "powcalk_sum", "powdzialki"]:
-            if dzialki_kwal.fields().indexOf(fld) == -1:
-                dzialki_kwal.dataProvider().addAttributes([QgsField(fld, 6, "double")])
+        needed = []
+        if dzialki_kwal.fields().indexOf("powbud_sum") == -1:
+            needed.append(QgsField("powbud_sum", 6, "double"))
+        if dzialki_kwal.fields().indexOf("powcalk_sum") == -1:
+            needed.append(QgsField("powcalk_sum", 6, "double"))
+        if dzialki_kwal.fields().indexOf("powdzialki") == -1:
+            needed.append(QgsField("powdzialki", 6, "double"))
+        if needed:
+            dzialki_kwal.dataProvider().addAttributes(needed)
         dzialki_kwal.updateFields()
 
+        dzialki_updates = {}
         idx_pb_sum = dzialki_kwal.fields().indexOf("powbud_sum")
         idx_pc_sum = dzialki_kwal.fields().indexOf("powcalk_sum")
         idx_pd     = dzialki_kwal.fields().indexOf("powdzialki")
-
         for f in dzialki_kwal.getFeatures():
             pid = f["id_dzialki"]
-            sums = agg.get(pid, [0.0, 0.0])
-            dzialki_kwal.changeAttributeValue(f.id(), idx_pb_sum, sums[0])
-            dzialki_kwal.changeAttributeValue(f.id(), idx_pc_sum, sums[1])
-            dzialki_kwal.changeAttributeValue(f.id(), idx_pd, f.geometry().area())
+            s = agg.get(pid, [0.0, 0.0])
+            dzialki_updates[f.id()] = {
+                idx_pb_sum: s[0],
+                idx_pc_sum: s[1],
+                idx_pd: f.geometry().area()
+            }
+        dzialki_kwal.dataProvider().changeAttributeValues(dzialki_updates)
         dzialki_kwal.commitChanges()
 
         dz_strefy = processing.run(
@@ -3271,8 +3250,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         dz_strefy.updateFields()
 
         idx_ov = dz_strefy.fields().indexOf("overlap")
+        ov_updates = {}
         for f in dz_strefy.getFeatures():
-            dz_strefy.changeAttributeValue(f.id(), idx_ov, f.geometry().area())
+            ov_updates[f.id()] = { idx_ov: f.geometry().area() }
+        dz_strefy.dataProvider().changeAttributeValues(ov_updates)
         dz_strefy.commitChanges()
 
         best = {}
@@ -3283,19 +3264,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 best[pid] = (area, f["symbol"], f["oznaczenie"])
 
         dzialki_kwal.startEditing()
-        for fld in ["symbol", "oznaczenie"]:
-            if dzialki_kwal.fields().indexOf(fld) == -1:
-                dzialki_kwal.dataProvider().addAttributes([QgsField(fld, 10, "string")])
-        dzialki_kwal.updateFields()
-
+        sym_updates = {}
         idx_sym = dzialki_kwal.fields().indexOf("symbol")
         idx_ozn = dzialki_kwal.fields().indexOf("oznaczenie")
-
         for f in dzialki_kwal.getFeatures():
             pid = f["id_dzialki"]
             if pid in best:
-                dzialki_kwal.changeAttributeValue(f.id(), idx_sym, best[pid][1])
-                dzialki_kwal.changeAttributeValue(f.id(), idx_ozn, best[pid][2])
+                sym_updates[f.id()] = { idx_sym: best[pid][1], idx_ozn: best[pid][2] }
+        dzialki_kwal.dataProvider().changeAttributeValues(sym_updates)
         dzialki_kwal.commitChanges()
 
         final_layer = processing.run(
@@ -3306,20 +3282,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     {"name": "powbud_sum", "type": 6, "length": 20, "precision": 2, "expression": '"powbud_sum"'},
                     {"name": "powcalk_sum", "type": 6, "length": 20, "precision": 2, "expression": '"powcalk_sum"'},
                     {"name": "powdzialki", "type": 6, "length": 20, "precision": 2, "expression": '"powdzialki"'},
-                    {
-                        "name": "maxpowzab",
-                        "type": 6,
-                        "length": 10,
-                        "precision": 2,
-                        "expression": 'CASE WHEN "powdzialki" > 0 THEN ceil(("powbud_sum" / "powdzialki") * 100) / 100 END'
-                    },
-                    {
-                        "name": "intensywnosc",
-                        "type": 6,
-                        "length": 10,
-                        "precision": 2,
-                        "expression": 'CASE WHEN "powdzialki" > 0 THEN ceil(("powcalk_sum" / "powdzialki") * 100) / 100 END'
-                    },
+                    {"name": "maxpowzab", "type": 6, "length": 10, "precision": 2,
+                     "expression": 'CASE WHEN "powdzialki" > 0 THEN ceil(("powbud_sum" / "powdzialki") * 100) / 100 END'},
+                    {"name": "intensywnosc", "type": 6, "length": 10, "precision": 2,
+                     "expression": 'CASE WHEN "powdzialki" > 0 THEN ceil(("powcalk_sum" / "powdzialki") * 100) / 100 END'},
                     {"name": "symbol", "type": 10, "length": 50, "precision": 0, "expression": '"symbol"'},
                     {"name": "oznaczenie", "type": 10, "length": 50, "precision": 0, "expression": '"oznaczenie"'},
                     {"name": "NUMER_DZIALKI", "type": 10, "length": 50, "precision": 0, "expression": '"NUMER_DZIALKI"'},
@@ -3330,10 +3296,28 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             feedback=feedback
         )["OUTPUT"]
 
-        final_layer.setName("Działki ze wskaźnikami")
+        final_layer = processing.run(
+            "native:extractbyexpression",
+            {
+                "INPUT": final_layer,
+                "EXPRESSION": '"powbud_sum" > 0.1',
+                "OUTPUT": "memory:"
+            },
+            feedback=feedback
+        )["OUTPUT"]
+
+        final_layer.setName(
+            "Działki ze wskaźnikami (powódź)" if use_flood else "Działki ze wskaźnikami (bez powodzi)"
+        )
         project.addMapLayer(final_layer)
-        report("Dodano warstwę ze wskaźnikami dla działek z budynkami w granicach obszarów zagrożenia powodzią")
+
         report("Analiza zakończona")
+
+    def anal_pog_all_buildings(self):
+        self.anal_pog_building_core(use_flood=False)
+
+    def anal_pog_flood_buildings(self):
+        self.anal_pog_building_core(use_flood=True)
 
 
 
