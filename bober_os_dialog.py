@@ -105,7 +105,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         for btn in self.findChildren(QtWidgets.QPushButton):
             btn.setDefault(False)
             btn.setAutoDefault(False)
-        
+
         self.pbClearConsole.clicked.connect(self.run_clear_console)
 
         self.project_path.setStorageMode(QgsFileWidget.GetFile)
@@ -127,6 +127,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.sbBufferValue.setValue(int(saved_buffer))
         self.sbBufferValue.valueChanged.connect(self.update_buffer_value)
         self.update_buffer_value(self.sbBufferValue.value())
+        
+        self.wind_area.setFilters(
+            QgsMapLayerProxyModel.PolygonLayer |
+            QgsMapLayerProxyModel.PointLayer
+        )
+        self.mpzp_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        self.pog_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        self.numeracja_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         
         self.layer_area.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.layer_area.setCurrentIndex(-1)
@@ -238,6 +246,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_wind_build_700.clicked.connect(self.anal_wind_build_700)
         self.pb_anal_wind_build_700_rad.clicked.connect(self.anal_wind_build_700_rad)
         self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)
+        
+        self.pb_anal_pog_flood_building.clicked.connect(self.anal_pog_flood_building)
+
 
     def save_setting(self, key: str, value: str):
         settings = QSettings()
@@ -255,10 +266,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def update_buffer_value(self, value):
         self.save_setting("buffer_value", str(value))
-        if value == 0:
-            self.labelBuffer.setText("Brak buforu")
-        else:
-            self.labelBuffer.setText(f"Wybrany bufor: {value} m")
     
     def update_label_layer_area(self):
         layer = self.layer_area.currentLayer()
@@ -272,7 +279,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.cb_mpzp_symbol_col.clear()
 
         layer = self.mpzp_layer.currentLayer()
-        if not layer:
+        if not layer or layer.type() != QgsMapLayerType.VectorLayer:
             self.cb_mpzp_symbol_col.blockSignals(False)
             return
 
@@ -409,123 +416,140 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     
     def process_vector_files(
         self,
-        input_paths: list,
-        match_rules: dict,
-        fields_per_rule: dict,
-        encoding: str = "CP1250",
-        target_crs: str = "EPSG:2180",
-        subfolder=""):
+        input_paths,
+        match_rules,
+        fields_per_rule,
+        target_crs="EPSG:2180",
+        subfolder="",
+        force_cp1250=False):
         if isinstance(input_paths, str):
             input_paths = [input_paths]
 
-        resource_base = self.resource_path.filePath()
-        if not resource_base:
-            self.tbConsole.append("Brak ścieżki zasobu (resource_path).")
+        if not input_paths:
+            self.tbConsole.append("No input files selected.")
             return
 
-        if isinstance(subfolder, list):
-            resource_dir = os.path.join(resource_base, *subfolder)
-        else:
-            resource_dir = os.path.join(resource_base, subfolder)
-        os.makedirs(resource_dir, exist_ok=True)
+        base_dir = self.resource_path.filePath()
+        if not base_dir:
+            self.tbConsole.append("Resource path not set.")
+            return
+
+        out_dir = (
+            os.path.join(base_dir, *subfolder)
+            if isinstance(subfolder, (list, tuple))
+            else os.path.join(base_dir, subfolder)
+        )
+        os.makedirs(out_dir, exist_ok=True)
+
+        target_crs_obj = QgsCoordinateReferenceSystem(target_crs)
+        context = QgsProject.instance().transformContext()
 
         total = len(input_paths)
-        if total == 0:
-            self.tbConsole.append("Nie wybrano żadnych plików wejściowych.")
-            return
-
         self.progressBar.setValue(0)
 
-        for i, path in enumerate(input_paths):
-            base = os.path.basename(path)
+        for i, src_path in enumerate(input_paths, 1):
+            base = os.path.basename(src_path)
 
             gpkg_name = None
-            matched_pattern = None
-            for pattern, target in match_rules.items():
-                p = pattern.replace("%", "")
-                if pattern.startswith("%") and pattern.endswith("%"):
-                    if p in base:
-                        gpkg_name = target
-                        break
-                elif pattern.startswith("%"):
-                    if base.endswith(p):
-                        gpkg_name = target
-                        break
-                elif pattern.endswith("%"):
-                    if base.startswith(p):
-                        gpkg_name = target
-                        break
-                else:
-                    if base == p:
-                        gpkg_name = target
-                        break
+            matched = None
+            for pat, tgt in match_rules.items():
+                p = pat.replace("%", "")
+                if (
+                    (pat.startswith("%") and pat.endswith("%") and p in base)
+                    or (pat.startswith("%") and base.endswith(p))
+                    or (pat.endswith("%") and base.startswith(p))
+                    or base == p
+                ):
+                    gpkg_name = tgt
+                    matched = pat
+                    break
 
-            if gpkg_name is None:
-                self.tbConsole.append(f"Brak reguły dopasowania dla: {base}\n")
+            if not gpkg_name:
+                self.tbConsole.append(f"No rule for: {base}")
+                self.progressBar.setValue(int(i / total * 100))
                 continue
 
-            fields_to_delete = fields_per_rule.get(matched_pattern, [])
+            gpkg_path = os.path.join(out_dir, gpkg_name)
 
-            gpkg_path = os.path.normpath(os.path.join(resource_dir, gpkg_name))
-            os.makedirs(os.path.dirname(gpkg_path), exist_ok=True)
-
-            self.tbConsole.append(f"Przetwarzanie pliku: {base}")
-            self.tbConsole.append(f"Docelowy GPKG: {gpkg_path}")
-
-            layer = QgsVectorLayer(path, "input", "ogr")
+            layer = QgsVectorLayer(src_path, "src", "ogr")
             if not layer.isValid():
-                self.tbConsole.append(f"Nie można wczytać warstwy: {base}\n")
+                self.tbConsole.append(f"Failed to load layer: {base}")
+                self.progressBar.setValue(int(i / total * 100))
                 continue
 
-            layer.setProviderEncoding(encoding)
-            layer.dataProvider().setEncoding(encoding)
+            # THIS IS THE KEY LINE – ALWAYS FORCE CP1250 WHEN REQUESTED
+            if force_cp1250:
+                layer.dataProvider().setEncoding("CP1250")
 
-            layer.setCrs(QgsCoordinateReferenceSystem(target_crs))
+            src_fields = layer.fields()
+            drop = set(fields_per_rule.get(matched, []))
+            keep_idx = [i for i, f in enumerate(src_fields) if f.name() not in drop]
 
-            provider = layer.dataProvider()
-            existing = provider.fields().names()
-            delete_list = [f for f in fields_to_delete if f in existing]
-            if delete_list:
-                idxs = [provider.fieldNameIndex(f) for f in delete_list]
-                provider.deleteAttributes(idxs)
-                layer.updateFields()
-                self.tbConsole.append(f"Usunięto pola: {', '.join(delete_list)}")
-            else:
-                self.tbConsole.append("Brak pól do usunięcia.")
+            geom_type = layer.wkbType()
+            need_tr = layer.crs().isValid() and layer.crs() != target_crs_obj
+            if need_tr:
+                tr = QgsCoordinateTransform(layer.crs(), target_crs_obj, context)
+
+            mem = QgsVectorLayer(
+                f"{QgsWkbTypes.displayString(geom_type)}?crs={target_crs}",
+                "mem",
+                "memory"
+            )
+            prov = mem.dataProvider()
+            prov.addAttributes([src_fields[i] for i in keep_idx])
+            mem.updateFields()
+
+            feats = []
+            for f in layer.getFeatures():
+                g = f.geometry()
+                if not g or g.isEmpty():
+                    continue
+
+                if need_tr:
+                    g = QgsGeometry(g)
+                    g.transform(tr)
+
+                nf = QgsFeature(mem.fields())
+                nf.setGeometry(g)
+                nf.setAttributes([f[i] for i in keep_idx])
+                feats.append(nf)
+
+            if not feats:
+                self.tbConsole.append(f"No valid features: {base}")
+                self.progressBar.setValue(int(i / total * 100))
+                continue
+
+            prov.addFeatures(feats)
+            mem.updateExtents()
+
+            layer_name = os.path.splitext(gpkg_name)[0]
 
             if os.path.exists(gpkg_path):
                 try:
                     os.remove(gpkg_path)
-                    self.tbConsole.append(f"Usunięto istniejący plik: {gpkg_path}")
-                except Exception as e:
-                    self.tbConsole.append(f"Nie udało się usunąć GPKG:\n{e}\n")
+                except Exception:
+                    self.tbConsole.append(f"Cannot overwrite file: {gpkg_path}")
+                    self.progressBar.setValue(int(i / total * 100))
                     continue
 
-            import re
-            layer_name = re.sub(r'[^a-zA-Z0-9_]', '_', os.path.splitext(base)[0])
-            options = QgsVectorFileWriter.SaveVectorOptions()
-            options.driverName = "GPKG"
-            options.encoding = encoding
-            options.layerName = layer_name
-            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+            opts = QgsVectorFileWriter.SaveVectorOptions()
+            opts.driverName = "GPKG"
+            opts.layerName = layer_name
+            opts.encoding = "UTF-8"
+            opts.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
 
-            error = QgsVectorFileWriter.writeAsVectorFormatV2(
-                layer,
-                gpkg_path,
-                QgsProject.instance().transformContext(),
-                options
+            err, _ = QgsVectorFileWriter.writeAsVectorFormatV2(
+                mem, gpkg_path, context, opts
             )
 
-            if os.path.exists(gpkg_path):
-                mod_time = time.ctime(os.path.getmtime(gpkg_path))
-                self.tbConsole.append(f"Zapis GPKG zakończony pomyślnie. Data ostatniej modyfikacji: {mod_time}")
-            else:
-                self.tbConsole.append(f"Błąd zapisu GPKG: {error}")
+            if err != QgsVectorFileWriter.NoError:
+                self.tbConsole.append(f"Write failed: {base}")
 
-            pct = int(((i + 1) / total) * 100)
-            self.progressBar.setValue(pct)
+            self.progressBar.setValue(int(i / total * 100))
+            QtWidgets.QApplication.processEvents()
 
-            self.tbConsole.append("Operacja zakończona.\n")
+        self.progressBar.setValue(100)
+        self.tbConsole.append("Operation completed.")
  
     def act_fop_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.fop_path.filePath())
@@ -548,9 +572,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             input_paths=shp_list,
             match_rules=match_rules,
             fields_per_rule=fields_per_rule,
-            encoding="CP1250",
             target_crs="EPSG:2180",
-            subfolder=["DANE_AKTUALIZOWANE", "FOP"]
+            subfolder=["DANE_AKTUALIZOWANE", "FOP"],
+            force_cp1250=True
         )
     
     def act_pomniki_layers(self):
@@ -567,9 +591,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             input_paths=shp_list,
             match_rules=match_rules,
             fields_per_rule=fields_per_rule,
-            encoding="UTF-8",
             target_crs="EPSG:2180",
-            subfolder=["DANE_AKTUALIZOWANE", "FOP"]
+            subfolder=["DANE_AKTUALIZOWANE", "FOP"],
+            force_cp1250=True
         )        
 
     def act_pig_layers(self):
@@ -593,7 +617,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             input_paths=shp_list,
             match_rules=match_rules,
             fields_per_rule=fields_per_rule,
-            encoding="UTF-8",
             target_crs="EPSG:2180",
             subfolder=["DANE_AKTUALIZOWANE", "PIG"]
         )
@@ -617,7 +640,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             input_paths=shp_list,
             match_rules=match_rules,
             fields_per_rule=fields_per_rule,
-            encoding="UTF-8",
             target_crs="EPSG:2180",
             subfolder=["DANE_AKTUALIZOWANE", "OZE"]
         )        
@@ -834,7 +856,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return None
 
         buffer_value = self.sbBufferValue.value()
-        result = None
+        geoms = []
 
         for f in layer.getFeatures():
             g = f.geometry()
@@ -842,9 +864,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 continue
             if buffer_value > 0:
                 g = g.buffer(buffer_value, 5)
-            result = g if result is None else result.combine(g)
+            geoms.append(g)
 
-        return result
+        if not geoms:
+            return None
+
+        return QgsGeometry.unaryUnion(geoms)
 
     def list_gpkg_layers_file(self, gpkg_path: str) -> set[str]:
         layers: set[str] = set()
@@ -3061,6 +3086,255 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f"Bufor_linie_elektroenergetyczne_{buffer_h}m"
             )
             self.tbConsole.append(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_h} m.")
+
+    def anal_pog_flood_building(self):
+        from qgis.core import (
+            QgsProject,
+            QgsVectorLayer,
+            QgsField,
+            QgsProcessingFeedback
+        )
+        from PyQt5.QtWidgets import QInputDialog, QMessageBox
+        import processing
+
+        def report(msg):
+            self.tbConsole.append(msg)
+
+        report("Rozpoczęto analizę: budynki na terenach zagrożenia powodzią")
+
+        feedback = QgsProcessingFeedback()
+        project = QgsProject.instance()
+
+        def select_layer(msg):
+            layers = [l for l in project.mapLayers().values() if isinstance(l, QgsVectorLayer)]
+            if not layers:
+                report("Błąd: brak warstw wektorowych w projekcie")
+                QMessageBox.critical(None, "Error", "Brak warstw wektorowych w projekcie")
+                raise RuntimeError
+
+            names = [l.name() for l in layers]
+            name, ok = QInputDialog.getItem(None, "Wybór warstwy", msg, names, 0, False)
+            if not ok:
+                report("Przerwano wybór warstwy")
+                raise RuntimeError
+
+            layer = project.mapLayersByName(name)[0]
+            report(f"Wybrano warstwę: {layer.name()}")
+            return layer
+
+        def ensure_epsg2180(layer):
+            if layer.crs().authid() != "EPSG:2180":
+                report(f"Reprojekcja warstwy {layer.name()} do EPSG:2180")
+                return processing.run(
+                    "native:reprojectlayer",
+                    {
+                        "INPUT": layer,
+                        "TARGET_CRS": "EPSG:2180",
+                        "OUTPUT": "memory:"
+                    },
+                    feedback=feedback
+                )["OUTPUT"]
+            return layer
+
+        try:
+            budynki = ensure_epsg2180(select_layer("Wybierz warstwę z budynkami (BDOT10k)"))
+            dzialki = ensure_epsg2180(select_layer("Wybierz warstwę z działkami (GML)"))
+            powodz  = ensure_epsg2180(select_layer("Wybierz warstwę z zagrożeniem powodzią"))
+            strefy  = ensure_epsg2180(select_layer("Wybierz warstwę ze strefami planistycznymi"))
+        except RuntimeError:
+            report("Analiza przerwana na etapie wyboru warstw")
+            return
+
+        if budynki.fields().indexOf("LICZBAKONDYGNACJI") == -1:
+            report("Błąd: brak pola LICZBAKONDYGNACJI w warstwie budynków")
+            return
+
+        if dzialki.fields().indexOf("id_dzialki") == -1:
+            report("Błąd: brak pola id_dzialki w warstwie działek")
+            return
+
+        if strefy.fields().indexOf("symbol") == -1 or strefy.fields().indexOf("oznaczenie") == -1:
+            report("Błąd: brak pól symbol lub oznaczenie w warstwie stref")
+            return
+
+        report("Rozpoczęto analizę przestrzenną")
+
+        bud_touch = processing.run(
+            "native:extractbylocation",
+            {"INPUT": budynki, "PREDICATE": [0], "INTERSECT": powodz, "OUTPUT": "memory:"},
+            feedback=feedback
+        )["OUTPUT"]
+
+        if bud_touch.featureCount() == 0:
+            report("Brak budynków w zasięgu obszarów zagrożenia powodzią")
+            return
+
+        report(f"Budynki w strefach powodzi: {bud_touch.featureCount()}")
+
+        bud_flood = processing.run(
+            "native:intersection",
+            {"INPUT": bud_touch, "OVERLAY": powodz, "OUTPUT": "memory:"},
+            feedback=feedback
+        )["OUTPUT"]
+
+        bud_flood.startEditing()
+        if bud_flood.fields().indexOf("flood_area") == -1:
+            bud_flood.dataProvider().addAttributes([QgsField("flood_area", 6, "double")])
+        bud_flood.updateFields()
+
+        idx_fa = bud_flood.fields().indexOf("flood_area")
+        for f in bud_flood.getFeatures():
+            bud_flood.changeAttributeValue(f.id(), idx_fa, f.geometry().area())
+        bud_flood.commitChanges()
+
+        bud_flood_ok = processing.run(
+            "native:extractbyexpression",
+            {"INPUT": bud_flood, "EXPRESSION": '"flood_area" >= 0.1', "OUTPUT": "memory:"},
+            feedback=feedback
+        )["OUTPUT"]
+
+        dzialki_kwal = processing.run(
+            "native:extractbylocation",
+            {"INPUT": dzialki, "PREDICATE": [0], "INTERSECT": bud_flood_ok, "OUTPUT": "memory:"},
+            feedback=feedback
+        )["OUTPUT"]
+
+        if dzialki_kwal.featureCount() == 0:
+            report("Brak działek z budynkami w strefach powodzi")
+            return
+
+        report(f"Działki zakwalifikowane: {dzialki_kwal.featureCount()}")
+
+        bud_na_dzialkach = processing.run(
+            "native:extractbylocation",
+            {"INPUT": budynki, "PREDICATE": [0], "INTERSECT": dzialki_kwal, "OUTPUT": "memory:"},
+            feedback=feedback
+        )["OUTPUT"]
+
+        split = processing.run(
+            "native:intersection",
+            {"INPUT": bud_na_dzialkach, "OVERLAY": dzialki_kwal, "OUTPUT": "memory:"},
+            feedback=feedback
+        )["OUTPUT"]
+
+        split.startEditing()
+        for fld in ["powbud", "powcalk"]:
+            if split.fields().indexOf(fld) == -1:
+                split.dataProvider().addAttributes([QgsField(fld, 6, "double")])
+        split.updateFields()
+
+        idx_pb = split.fields().indexOf("powbud")
+        idx_pc = split.fields().indexOf("powcalk")
+        idx_k  = split.fields().indexOf("LICZBAKONDYGNACJI")
+
+        for f in split.getFeatures():
+            area = f.geometry().area()
+            k = f[idx_k] if idx_k != -1 and f[idx_k] else 0
+            split.changeAttributeValue(f.id(), idx_pb, area)
+            split.changeAttributeValue(f.id(), idx_pc, area * k)
+        split.commitChanges()
+
+        agg = {}
+        for f in split.getFeatures():
+            pid = f["id_dzialki"]
+            agg.setdefault(pid, [0.0, 0.0])
+            agg[pid][0] += f["powbud"] or 0
+            agg[pid][1] += f["powcalk"] or 0
+
+        dzialki_kwal.startEditing()
+        for fld in ["powbud_sum", "powcalk_sum", "powdzialki"]:
+            if dzialki_kwal.fields().indexOf(fld) == -1:
+                dzialki_kwal.dataProvider().addAttributes([QgsField(fld, 6, "double")])
+        dzialki_kwal.updateFields()
+
+        idx_pb_sum = dzialki_kwal.fields().indexOf("powbud_sum")
+        idx_pc_sum = dzialki_kwal.fields().indexOf("powcalk_sum")
+        idx_pd     = dzialki_kwal.fields().indexOf("powdzialki")
+
+        for f in dzialki_kwal.getFeatures():
+            pid = f["id_dzialki"]
+            sums = agg.get(pid, [0.0, 0.0])
+            dzialki_kwal.changeAttributeValue(f.id(), idx_pb_sum, sums[0])
+            dzialki_kwal.changeAttributeValue(f.id(), idx_pc_sum, sums[1])
+            dzialki_kwal.changeAttributeValue(f.id(), idx_pd, f.geometry().area())
+        dzialki_kwal.commitChanges()
+
+        dz_strefy = processing.run(
+            "native:intersection",
+            {"INPUT": split, "OVERLAY": strefy, "OUTPUT": "memory:"},
+            feedback=feedback
+        )["OUTPUT"]
+
+        dz_strefy.startEditing()
+        if dz_strefy.fields().indexOf("overlap") == -1:
+            dz_strefy.dataProvider().addAttributes([QgsField("overlap", 6, "double")])
+        dz_strefy.updateFields()
+
+        idx_ov = dz_strefy.fields().indexOf("overlap")
+        for f in dz_strefy.getFeatures():
+            dz_strefy.changeAttributeValue(f.id(), idx_ov, f.geometry().area())
+        dz_strefy.commitChanges()
+
+        best = {}
+        for f in dz_strefy.getFeatures():
+            pid = f["id_dzialki"]
+            area = f["overlap"] or 0
+            if pid not in best or area > best[pid][0]:
+                best[pid] = (area, f["symbol"], f["oznaczenie"])
+
+        dzialki_kwal.startEditing()
+        for fld in ["symbol", "oznaczenie"]:
+            if dzialki_kwal.fields().indexOf(fld) == -1:
+                dzialki_kwal.dataProvider().addAttributes([QgsField(fld, 10, "string")])
+        dzialki_kwal.updateFields()
+
+        idx_sym = dzialki_kwal.fields().indexOf("symbol")
+        idx_ozn = dzialki_kwal.fields().indexOf("oznaczenie")
+
+        for f in dzialki_kwal.getFeatures():
+            pid = f["id_dzialki"]
+            if pid in best:
+                dzialki_kwal.changeAttributeValue(f.id(), idx_sym, best[pid][1])
+                dzialki_kwal.changeAttributeValue(f.id(), idx_ozn, best[pid][2])
+        dzialki_kwal.commitChanges()
+
+        final_layer = processing.run(
+            "native:refactorfields",
+            {
+                "INPUT": dzialki_kwal,
+                "FIELDS_MAPPING": [
+                    {"name": "powbud_sum", "type": 6, "length": 20, "precision": 2, "expression": '"powbud_sum"'},
+                    {"name": "powcalk_sum", "type": 6, "length": 20, "precision": 2, "expression": '"powcalk_sum"'},
+                    {"name": "powdzialki", "type": 6, "length": 20, "precision": 2, "expression": '"powdzialki"'},
+                    {
+                        "name": "maxpowzab",
+                        "type": 6,
+                        "length": 10,
+                        "precision": 2,
+                        "expression": 'CASE WHEN "powdzialki" > 0 THEN ceil(("powbud_sum" / "powdzialki") * 100) / 100 END'
+                    },
+                    {
+                        "name": "intensywnosc",
+                        "type": 6,
+                        "length": 10,
+                        "precision": 2,
+                        "expression": 'CASE WHEN "powdzialki" > 0 THEN ceil(("powcalk_sum" / "powdzialki") * 100) / 100 END'
+                    },
+                    {"name": "symbol", "type": 10, "length": 50, "precision": 0, "expression": '"symbol"'},
+                    {"name": "oznaczenie", "type": 10, "length": 50, "precision": 0, "expression": '"oznaczenie"'},
+                    {"name": "NUMER_DZIALKI", "type": 10, "length": 50, "precision": 0, "expression": '"NUMER_DZIALKI"'},
+                    {"name": "NAZWA_OBREBU", "type": 10, "length": 50, "precision": 0, "expression": '"NAZWA_OBREBU"'}
+                ],
+                "OUTPUT": "memory:"
+            },
+            feedback=feedback
+        )["OUTPUT"]
+
+        final_layer.setName("Działki ze wskaźnikami")
+        project.addMapLayer(final_layer)
+        report("Dodano warstwę ze wskaźnikami dla działek z budynkami w granicach obszarów zagrożenia powodzią")
+        report("Analiza zakończona")
+
 
 
 # xD

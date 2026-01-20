@@ -47,19 +47,47 @@
      <x>10</x>
      <y>560</y>
      <width>981</width>
-     <height>31</height>
+     <height>32</height>
     </rect>
    </property>
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
      <widget class="QLabel" name="labelBuffer">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>30</height>
+       </size>
+      </property>
       <property name="text">
-       <string>Brak buforu</string>
+       <string>Wybrany bufor:</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QgsSpinBox" name="sbBufferValue">
+      <property name="minimumSize">
+       <size>
+        <width>64</width>
+        <height>30</height>
+       </size>
+      </property>
+      <property name="suffix">
+       <string> m</string>
+      </property>
+      <property name="maximum">
+       <number>999999999</number>
       </property>
      </widget>
     </item>
     <item>
      <widget class="QLabel" name="labelLayerArea">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>30</height>
+       </size>
+      </property>
       <property name="text">
        <string>Brak warstwy</string>
       </property>
@@ -70,7 +98,13 @@
       <property name="minimumSize">
        <size>
         <width>150</width>
-        <height>0</height>
+        <height>30</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>30</height>
        </size>
       </property>
       <property name="value">
@@ -80,6 +114,12 @@
     </item>
     <item>
      <widget class="QPushButton" name="pbUiColor">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>30</height>
+       </size>
+      </property>
       <property name="text">
        <string>Zmień kolor UI</string>
       </property>
@@ -90,7 +130,7 @@
       <property name="minimumSize">
        <size>
         <width>87</width>
-        <height>0</height>
+        <height>30</height>
        </size>
       </property>
       <property name="text">
@@ -113,7 +153,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>5</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab_10">
        <attribute name="title">
@@ -173,51 +213,6 @@
           </item>
           <item>
            <widget class="QgsMapLayerComboBox" name="layer_area"/>
-          </item>
-          <item>
-           <widget class="QLabel" name="label">
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>5000</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Wybierz odległość buforu dla analizy</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QgsSpinBox" name="sbBufferValue">
-            <property name="suffix">
-             <string> m</string>
-            </property>
-            <property name="maximum">
-             <number>999999999</number>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_4">
-            <property name="font">
-             <font>
-              <family>Open Sans</family>
-              <pointsize>8</pointsize>
-              <weight>50</weight>
-              <italic>false</italic>
-              <bold>false</bold>
-             </font>
-            </property>
-            <property name="layoutDirection">
-             <enum>Qt::LeftToRight</enum>
-            </property>
-            <property name="text">
-             <string>Ustaw na 0 jeśli nie używasz buforu</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
           </item>
           <item>
            <spacer name="verticalSpacer_14">
@@ -280,6 +275,7 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Aby korzystać z funkcjonalności wtyczki należy najpierw stworzyć geopaczkę (.gpkg) w celu lokalizacji zasobu lokalnego danych oraz posiadać załadowaną w projekcie warstwę z obszarem opracowania (nie musi być w ww. geopaczce).&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Wybrany bufor ma znaczenie przy zakresie do analiz oraz przy zakresie importowanych danych (np. przy buforze 15000 wtyczka zaciągnie do geopaczki wybrane obiekty w promieniu do 15 km od obszaru opracowania).&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Bufor wybieramy w lewym dolnym rogu okna - ustaw na 0 jeśli nie używasz buforu.&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Ścieżka do zasobu wybierana jest raz i nie należy jej później zmieniać.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
            </widget>
@@ -1313,7 +1309,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="tab_21">
          <attribute name="title">
@@ -1646,6 +1642,26 @@ p, li { white-space: pre-wrap; }
            </item>
            <item>
             <spacer name="verticalSpacer_19">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_pog_flood_building">
+             <property name="text">
+              <string>Oblicz wskaźniki dla działek zagrożonych powodzią</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_21">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
              </property>
