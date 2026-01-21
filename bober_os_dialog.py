@@ -201,6 +201,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.pb_import_pkp_halas_ln: {"INNE_PKP_halas_imisja_LN.gpkg": ["DANE_INNE"]},
             self.pb_import_torfowiska_alk: {"INNE_Torfowiska_alkaliczne.gpkg": ["DANE_INNE"]},
             self.pb_import_korytarze: {"INNE_Korytarze_ekologiczne.gpkg": ["DANE_INNE"]},
+            self.pb_import_lasy: {"INNE_Lasy_BDL.gpkg": ["DANE_INNE"]}
         }
 
         for btn, config in button_configs.items():

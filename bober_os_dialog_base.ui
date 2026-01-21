@@ -153,7 +153,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>5</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tab_10">
        <attribute name="title">
@@ -519,7 +519,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>4</number>
         </property>
         <widget class="QWidget" name="tab_4">
          <attribute name="title">
@@ -1039,6 +1039,13 @@ p, li { white-space: pre-wrap; }
             <widget class="QPushButton" name="pb_import_korytarze">
              <property name="text">
               <string>Korytarze ekologiczne (2005)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_import_lasy">
+             <property name="text">
+              <string>Lasy - PGL LP</string>
              </property>
             </widget>
            </item>
