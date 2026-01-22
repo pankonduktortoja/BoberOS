@@ -1316,7 +1316,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_21">
          <attribute name="title">
@@ -1371,6 +1371,13 @@ p, li { white-space: pre-wrap; }
             <widget class="QPushButton" name="pb_anal_inne">
              <property name="text">
               <string>Analizuj dane INNE</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_lasy">
+             <property name="text">
+              <string>Analizuj dane lasów - BDL</string>
              </property>
             </widget>
            </item>

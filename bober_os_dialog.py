@@ -234,6 +234,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_inne.clicked.connect(self.anal_inne)
         self.pb_anal_oze.clicked.connect(self.anal_oze)
         self.pb_anal_fop_10km.clicked.connect(self.anal_fop_10km)
+        self.pb_anal_lasy.clicked.connect(self.anal_lasy)
                 
         self.pb_gpkg_load_layers.clicked.connect(self.load_layers)
         self.pb_gpkg_delete_layers.clicked.connect(self.delete_selected_layers)
@@ -2695,6 +2696,122 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tbConsole.append("Analiza OZE zakończona.\n")
 
+    def anal_lasy(self):
+        self.tbConsole.append("Analiza LASY - start")
+        QtWidgets.QApplication.processEvents()
+
+        filter_geom = self.build_filter_geometry()
+        if not filter_geom:
+            self.tbConsole.append("Brak funkcji w layer_area lub buforze.")
+            return
+
+        resource_base = self.resource_path.filePath()
+        rel_path = "DANE_INNE/INNE_Lasy_BDL.gpkg"
+        abs_path = os.path.join(resource_base, rel_path)
+
+        self.progressBar.setValue(0)
+
+        if not os.path.exists(abs_path):
+            self.tbConsole.append("Plik nie istnieje.")
+            return
+
+        layer = QgsVectorLayer(abs_path, "src", "ogr")
+        if not layer.isValid():
+            self.tbConsole.append("Nie można wczytać warstwy.")
+            return
+
+        bbox = filter_geom.boundingBox()
+        engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
+        engine.prepareGeometry()
+
+        field_names = set(layer.fields().names())
+        required_fields = ["site_type", "forest_fun", "prot_categ"]
+
+        missing_fields = [f for f in required_fields if f not in field_names]
+        if missing_fields:
+            self.tbConsole.append(
+                "Brak kolumn: " + ", ".join(missing_fields)
+            )
+
+        request = QgsFeatureRequest().setFilterRect(bbox)
+
+        matches = []
+        for f in layer.getFeatures(request):
+            g = f.geometry()
+            if not g or g.isEmpty():
+                continue
+
+            if engine.intersects(g.constGet()):
+                try:
+                    inter = g.intersection(filter_geom)
+                except Exception:
+                    continue
+
+                if not inter or inter.isEmpty():
+                    continue
+
+                matches.append((f, inter))
+
+        if not matches:
+            self.tbConsole.append("Brak przecięć.")
+            return
+
+        total_area = 0.0
+        for _, g in matches:
+            total_area += g.area()
+
+        analysis_area = total_area / 10000.0
+        self.tbConsole.append(f"Powierzchnia wszystkich wydzieleń [ha]: {analysis_area:.2f}")
+
+        QtWidgets.QApplication.processEvents()
+        self.progressBar.setValue(25)
+
+        def dissolve_by_field(field_name: str):
+            if field_name not in field_names:
+                self.tbConsole.append(f"Brak kolumny: {field_name}")
+                return
+
+            groups: dict[str, float] = {}
+
+            for f, g in matches:
+                val = f.attribute(field_name)
+                key = "" if val is None else str(val).strip()
+
+                if not key:
+                    key = "(puste)"
+
+                groups.setdefault(key, 0.0)
+                groups[key] += g.area()
+
+            if not groups:
+                self.tbConsole.append(f"Brak danych w kolumnie: {field_name}")
+                return
+
+            self.tbConsole.append(f"\nAnaliza: {field_name}")
+
+            for key, area_m2 in sorted(groups.items(), key=lambda x: -x[1]):
+                area_ha = area_m2 / 10000.0
+                pct = (area_ha / analysis_area * 100.0) if analysis_area > 0 else 0.0
+                self.tbConsole.append(
+                    f"{key}: {area_ha:.2f} ha ({pct:.2f} %)"
+                )
+                QtWidgets.QApplication.processEvents()
+
+        dissolve_by_field("site_type")
+        self.progressBar.setValue(50)
+
+        dissolve_by_field("forest_fun")
+        self.progressBar.setValue(75)
+
+        dissolve_by_field("prot_categ")
+        self.progressBar.setValue(100)
+
+        self.tbConsole.append("Analiza LASY zakończona.\n")
+        QtWidgets.QApplication.processEvents()
+
+
+
+
     def list_project_gpkg_layers(self) -> list[str]:
         gpkg = self.project_path.filePath()
         if not gpkg or not os.path.isfile(gpkg):
@@ -3353,14 +3470,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         report("Analiza zakończona")
 
-
-
-
     def anal_pog_all_buildings(self):
         self.anal_pog_building_core(use_flood=False)
 
     def anal_pog_flood_buildings(self):
         self.anal_pog_building_core(use_flood=True)
+
+
+
 
 
 
