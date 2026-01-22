@@ -3113,9 +3113,16 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 raise RuntimeError
             return project.mapLayersByName(name)[0]
 
+        def fix_geoms(layer):
+            return processing.run(
+                "native:fixgeometries",
+                {"INPUT": layer, "OUTPUT": "memory:"},
+                feedback=feedback
+            )["OUTPUT"]
+
         def ensure_epsg2180(layer):
             if layer.crs().authid() != "EPSG:2180":
-                return processing.run(
+                out = processing.run(
                     "native:reprojectlayer",
                     {
                         "INPUT": layer,
@@ -3124,7 +3131,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     },
                     feedback=feedback
                 )["OUTPUT"]
-            return layer
+                return fix_geoms(out)
+            return fix_geoms(layer)
 
         try:
             budynki = ensure_epsg2180(select_layer("Wybierz warstwę z budynkami (BDOT10k)"))
@@ -3136,17 +3144,17 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return
 
         if use_flood:
-            bud_touch = processing.run(
+            bud_touch = fix_geoms(processing.run(
                 "native:extractbylocation",
                 {"INPUT": budynki, "PREDICATE": [0], "INTERSECT": powodz, "OUTPUT": "memory:"},
                 feedback=feedback
-            )["OUTPUT"]
+            )["OUTPUT"])
 
-            bud_flood = processing.run(
+            bud_flood = fix_geoms(processing.run(
                 "native:intersection",
                 {"INPUT": bud_touch, "OVERLAY": powodz, "OUTPUT": "memory:"},
                 feedback=feedback
-            )["OUTPUT"]
+            )["OUTPUT"])
 
             bud_flood.startEditing()
             if bud_flood.fields().indexOf("flood_area") == -1:
@@ -3160,31 +3168,31 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             bud_flood.dataProvider().changeAttributeValues(fa_updates)
             bud_flood.commitChanges()
 
-            bud_flood_ok = processing.run(
+            bud_flood_ok = fix_geoms(processing.run(
                 "native:extractbyexpression",
                 {"INPUT": bud_flood, "EXPRESSION": '"flood_area" >= 0.1', "OUTPUT": "memory:"},
                 feedback=feedback
-            )["OUTPUT"]
+            )["OUTPUT"])
 
-            dzialki_kwal = processing.run(
+            dzialki_kwal = fix_geoms(processing.run(
                 "native:extractbylocation",
                 {"INPUT": dzialki, "PREDICATE": [0], "INTERSECT": bud_flood_ok, "OUTPUT": "memory:"},
                 feedback=feedback
-            )["OUTPUT"]
+            )["OUTPUT"])
         else:
             dzialki_kwal = dzialki
 
-        bud_na_dzialkach = processing.run(
+        bud_na_dzialkach = fix_geoms(processing.run(
             "native:extractbylocation",
             {"INPUT": budynki, "PREDICATE": [0], "INTERSECT": dzialki_kwal, "OUTPUT": "memory:"},
             feedback=feedback
-        )["OUTPUT"]
+        )["OUTPUT"])
 
-        split = processing.run(
+        split = fix_geoms(processing.run(
             "native:intersection",
             {"INPUT": bud_na_dzialkach, "OVERLAY": dzialki_kwal, "OUTPUT": "memory:"},
             feedback=feedback
-        )["OUTPUT"]
+        )["OUTPUT"])
 
         split.startEditing()
         if split.fields().indexOf("powbud") == -1:
@@ -3239,11 +3247,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         dzialki_kwal.dataProvider().changeAttributeValues(dzialki_updates)
         dzialki_kwal.commitChanges()
 
-        dz_strefy = processing.run(
+        dz_strefy = fix_geoms(processing.run(
             "native:intersection",
             {"INPUT": split, "OVERLAY": strefy, "OUTPUT": "memory:"},
             feedback=feedback
-        )["OUTPUT"]
+        )["OUTPUT"])
 
         dz_strefy.startEditing()
         if dz_strefy.fields().indexOf("overlap") == -1:
@@ -3275,7 +3283,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         dzialki_kwal.dataProvider().changeAttributeValues(sym_updates)
         dzialki_kwal.commitChanges()
 
-        final_layer = processing.run(
+        final_layer = fix_geoms(processing.run(
             "native:refactorfields",
             {
                 "INPUT": dzialki_kwal,
@@ -3295,9 +3303,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 "OUTPUT": "memory:"
             },
             feedback=feedback
-        )["OUTPUT"]
+        )["OUTPUT"])
 
-        final_layer = processing.run(
+        final_layer = fix_geoms(processing.run(
             "native:extractbyexpression",
             {
                 "INPUT": final_layer,
@@ -3305,7 +3313,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 "OUTPUT": "memory:"
             },
             feedback=feedback
-        )["OUTPUT"]
+        )["OUTPUT"])
 
         final_layer.setName(
             "Działki ze wskaźnikami (powódź)" if use_flood else "Działki ze wskaźnikami (bez powodzi)"
@@ -3313,6 +3321,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         project.addMapLayer(final_layer)
 
         report("Analiza zakończona")
+
 
     def anal_pog_all_buildings(self):
         self.anal_pog_building_core(use_flood=False)
