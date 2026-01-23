@@ -22,17 +22,20 @@
 
 import os
 import time
+import re
 
 from qgis.core import *
-from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsCoordinateTransformContext, QgsWkbTypes, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature
+from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsCoordinateTransformContext, QgsWkbTypes, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature, QgsVectorLayerExporter
 from qgis.PyQt import *
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog, QFileSystemModel
 from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox
-from PyQt5.QtCore import Qt, QVariant
+from PyQt5.QtCore import Qt, QVariant, QDir
 import sqlite3
 import processing
+import psycopg2
 from qgis.gui import *
 from datetime import datetime
 from qgis.utils import iface
@@ -136,17 +139,43 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.mpzp_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.pog_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.numeracja_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
-        
+        #LAYER AREA
         self.layer_area.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.layer_area.setCurrentIndex(-1)
-        
+        #RESOURCE PATHS
         self.resource_path.setStorageMode(QgsFileWidget.GetDirectory)
         self.resource_path.setFilePath("")
-
         self.resource_path.fileChanged.connect(lambda path: self.save_setting("resource_path", path))
         saved_resource = self.load_setting("resource_path")
         if saved_resource:
             self.resource_path.setFilePath(saved_resource)
+        #TREEVIEWS + MODELS
+        self.fs_model = QFileSystemModel(self)
+        self.fs_model.setRootPath(QDir.rootPath())
+        map_path = os.path.join(self.resource_path.filePath(), "DANE_MAPY_ZASADNICZE")
+        self.tv_pg_import.setModel(self.fs_model)
+        self.tv_pg_import.setRootIndex(self.fs_model.index(map_path))
+        self.pb_pg_tree_load.clicked.connect(self.load_pg_tree)
+        self.pb_pg_refresh.clicked.connect(self.pg_refresh)
+        self.pb_pg_import.clicked.connect(self.pg_import)
+        self.pb_pg_load.clicked.connect(self.pg_load)
+        self.pb_pg_delete.clicked.connect(self.pg_delete)
+        self.pb_pg_split.clicked.connect(self.pg_split)
+        self.pb_pg_pound_replace.clicked.connect(self.pg_pound_replace)
+        #POSTGRES CREDENTIALS
+        self.le_pg_username.textChanged.connect(lambda text: self.save_setting("pg_username", text))
+        self.le_pg_password.textChanged.connect(lambda text: self.save_setting("pg_password", text))
+        self.le_pg_port.textChanged.connect(lambda text: self.save_setting("pg_port", text))
+        saved_username = self.load_setting("pg_username")
+        if saved_username:
+            self.le_pg_username.setText(saved_username)
+        saved_password = self.load_setting("pg_password")
+        if saved_password:
+            self.le_pg_password.setText(saved_password)
+        saved_port = self.load_setting("pg_port")
+        if saved_port:
+            self.le_pg_port.setText(saved_port)
+
         
         self.pb_act_fop.clicked.connect(self.act_fop_layers)
         self.pb_act_pomniki.clicked.connect(self.act_pomniki_layers)
@@ -163,7 +192,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.adm_path.setFilter("GML file (*.gml)")
         self.oze_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
         self.oze_path.setFilter("GPKG file (*.gpkg)")
-        
+        #IMPORT BUTTONS
         button_configs = {
             self.pb_import_fop: {"": ["DANE_AKTUALIZOWANE", "FOP"]},
             self.pb_import_pig: {"": ["DANE_AKTUALIZOWANE", "PIG"]},
@@ -203,7 +232,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.pb_import_korytarze: {"INNE_Korytarze_ekologiczne.gpkg": ["DANE_INNE"]},
             self.pb_import_lasy: {"INNE_Lasy_BDL.gpkg": ["DANE_INNE"]}
         }
-
         for btn, config in button_configs.items():
             btn.clicked.connect(lambda _, c=config: self.import_filtered_layers(c))
 
@@ -215,7 +243,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_pog_profil.clicked.connect(self.pog_korekta_profilu)
         self.pb_pog_spacje.clicked.connect(self.pog_korekta_spacje)
         self.pb_pog_zgodnosc.clicked.connect(self.pog_zgodnosc)
-        
+        #SAVE STYLES TO GPKG
         self.pb_style_save_single.clicked.connect(self.style_save_single)
         self.pb_style_save_all.clicked.connect(self.style_save_all)
         
@@ -225,7 +253,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_import_external.clicked.connect(self.import_external)
         self.import_external_filter_path.fileChanged.connect(self.populate_import_external_filter_columns)
         self.pb_import_external_filter.clicked.connect(self.import_external_filter)
-        
+        #ANALYSIS BUTTONS
         self.pb_anal_fop.clicked.connect(self.anal_fop)
         self.pb_anal_adm.clicked.connect(self.anal_adm)
         self.pb_anal_pig.clicked.connect(self.anal_pig)
@@ -235,31 +263,28 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_oze.clicked.connect(self.anal_oze)
         self.pb_anal_fop_10km.clicked.connect(self.anal_fop_10km)
         self.pb_anal_lasy.clicked.connect(self.anal_lasy)
-                
+        self.pb_anal_wind_pobliska.clicked.connect(self.anal_wind_pobliska)
+        self.pb_anal_wind_build_700.clicked.connect(self.anal_wind_build_700)
+        self.pb_anal_wind_build_700_rad.clicked.connect(self.anal_wind_build_700_rad)
+        self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)        
+        self.pb_anal_pog_flood_buildings.clicked.connect(self.anal_pog_flood_buildings)
+        self.pb_anal_pog_all_buildings.clicked.connect(self.anal_pog_all_buildings)        
+        #MANAGE GPKG BUTTONS        
         self.pb_gpkg_load_layers.clicked.connect(self.load_layers)
         self.pb_gpkg_delete_layers.clicked.connect(self.delete_selected_layers)
         self.pb_gpkg_rename_layers.clicked.connect(self.rename_selected_layer)
         self.pb_gpkg_vacuum_layers.clicked.connect(self.vacuum_gpkg)
-        
+        #BDOT BUTTONS
         self.pb_bdot_refresh.clicked.connect(self.populate_bdot_table)
         self.pb_bdot_import.clicked.connect(self.import_selected_bdot_layers)
         self.pb_bdot_uncheck.clicked.connect(self.uncheck_all_bdot)
-        
-        self.pb_anal_wind_pobliska.clicked.connect(self.anal_wind_pobliska)
-        self.pb_anal_wind_build_700.clicked.connect(self.anal_wind_build_700)
-        self.pb_anal_wind_build_700_rad.clicked.connect(self.anal_wind_build_700_rad)
-        self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)
-        
-        self.pb_anal_pog_flood_buildings.clicked.connect(self.anal_pog_flood_buildings)
-        self.pb_anal_pog_all_buildings.clicked.connect(self.anal_pog_all_buildings)
-
 
     def save_setting(self, key: str, value: str):
         settings = QSettings()
         settings.setValue(f"bober_os/settings/{key}", value)
         if key == "project_path":
             self.tbConsole.append(f"Zapisano ścieżkę do paczki projektu: {value}")
-        if key == "resource_path":
+        elif key == "resource_path":
             self.tbConsole.append(f"Zapisano ścieżkę do zasobu danych: {value}")
         elif key == "buffer_value":
             self.tbConsole.append(f"Zapisano wartość buforu: {value} m")
@@ -2809,9 +2834,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.tbConsole.append("Analiza LASY zakończona.\n")
         QtWidgets.QApplication.processEvents()
 
-
-
-
     def list_project_gpkg_layers(self) -> list[str]:
         gpkg = self.project_path.filePath()
         if not gpkg or not os.path.isfile(gpkg):
@@ -3476,6 +3498,535 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     def anal_pog_flood_buildings(self):
         self.anal_pog_building_core(use_flood=True)
 
+    def load_pg_tree(self):
+        user = self.le_pg_username.text()
+        password = self.le_pg_password.text()
+        host = "localhost"
+        port = self.le_pg_port.text() or "5432"
+
+        try:
+            conn = psycopg2.connect(
+                dbname="postgres",
+                user=user,
+                password=password,
+                host=host,
+                port=port
+            )
+            cur = conn.cursor()
+            cur.execute("SELECT datname FROM pg_database WHERE datistemplate = false;")
+            db_list = [row[0] for row in cur.fetchall()]
+            cur.close()
+            conn.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Connection Error", str(e))
+            return
+
+        model = QStandardItemModel(self.tv_pg_load)
+        model.setHorizontalHeaderLabels(["PostgreSQL"])
+
+        for db_name in db_list:
+            db_item = QStandardItem(db_name)
+            db_item.setEditable(False)
+
+            try:
+                conn_db = psycopg2.connect(
+                    dbname=db_name,
+                    user=user,
+                    password=password,
+                    host=host,
+                    port=port
+                )
+                cur_db = conn_db.cursor()
+                cur_db.execute("""
+                    SELECT schema_name
+                    FROM information_schema.schemata
+                    WHERE schema_name NOT IN ('pg_catalog','information_schema');
+                """)
+                schemas = [r[0] for r in cur_db.fetchall()]
+
+                for schema in schemas:
+                    schema_item = QStandardItem(schema)
+                    schema_item.setEditable(False)
+
+                    cur_db.execute("""
+                        SELECT table_name
+                        FROM information_schema.tables
+                        WHERE table_schema = %s;
+                    """, (schema,))
+                    tables = [t[0] for t in cur_db.fetchall()]
+
+                    for table in tables:
+                        table_item = QStandardItem(table)
+                        table_item.setEditable(False)
+                        schema_item.appendRow(table_item)
+
+                    db_item.appendRow(schema_item)
+
+                cur_db.close()
+                conn_db.close()
+
+            except Exception as e:
+                db_item.appendRow(QStandardItem(f"Error: {str(e)}"))
+
+            model.appendRow(db_item)
+
+        self.tv_pg_load.setModel(model)
+        self.tbConsole.append("Przeładowano strukturę bazy danych")
+
+    def pg_refresh(self, host='localhost', port='5432'):
+        project = QgsProject.instance()
+        root = project.layerTreeRoot()
+
+        layers_to_replace = []
+        for layer in project.mapLayers().values():
+            if layer.type() != QgsVectorLayer.VectorLayer:
+                continue
+            if layer.dataProvider().name().lower() != 'postgres':
+                continue
+            layers_to_replace.append(layer)
+
+        for old_layer in layers_to_replace:
+
+            old_uri = QgsDataSourceUri(old_layer.dataProvider().dataSourceUri())
+
+            dbname = str(old_uri.database() or '')
+            username = str(self.le_pg_username.text() or '')
+            password = str(self.le_pg_password.text() or '')
+            host_str = str(host or 'localhost')
+            port_str = str(port or '5432')
+            sslmode = QgsDataSourceUri.SslPrefer
+            auth_config = ''
+
+            new_uri = QgsDataSourceUri()
+            new_uri.setConnection(
+                host_str,
+                port_str,
+                dbname,
+                username,
+                password,
+                sslmode,
+                auth_config
+            )
+
+            new_uri.setDataSource(
+                old_uri.schema(),
+                old_uri.table(),
+                old_uri.geometryColumn(),
+                old_uri.sql(),
+                old_uri.keyColumn()
+            )
+
+            new_layer = QgsVectorLayer(new_uri.uri(), old_layer.name(), 'postgres')
+            if not new_layer.isValid():
+                self.tbConsole.append(f"Failed to reload layer: {old_layer.name()}")
+                continue
+
+            new_layer.setRenderer(old_layer.renderer().clone())
+            new_layer.setSubsetString(old_layer.subsetString())
+            new_layer.setCrs(old_layer.crs())
+
+            if old_layer.labelsEnabled():
+                new_layer.setLabeling(old_layer.labeling().clone())
+                new_layer.setLabelsEnabled(True)
+
+            for join in old_layer.vectorJoins():
+                new_layer.addJoin(join.clone())
+
+            for action in old_layer.actions().actions():
+                new_layer.addAction(action.clone())
+
+            project.addMapLayer(new_layer, False)
+
+            old_node = root.findLayer(old_layer.id())
+            if old_node:
+                parent = old_node.parent()
+                index = parent.children().index(old_node)
+                parent.insertChildNode(index, QgsLayerTreeLayer(new_layer))
+                project.removeMapLayer(old_layer.id())
+            else:
+                project.removeMapLayer(old_layer.id())
+                project.addMapLayer(new_layer)
+
+            self.tbConsole.append(f"Odświeżono źródło warstwy: {new_layer.name()}")
+
+    def pg_import(self):
+        idx = self.tv_pg_import.currentIndex()
+        if not idx.isValid():
+            self.tbConsole.append("Nie wybrano pliku.")
+            return
+
+        path = self.fs_model.filePath(idx)
+
+        if not path.lower().endswith(".shp"):
+            base = os.path.splitext(path)[0]
+            shp = base + ".shp"
+            if not os.path.exists(shp):
+                self.tbConsole.append("Wybrany plik nie jest warstwą SHP.")
+                return
+            path = shp
+
+        root = os.path.join(self.resource_path.filePath(), "DANE_MAPY_ZASADNICZE")
+        try:
+            rel = os.path.relpath(path, root)
+            db_name, schema_name, fname = rel.split(os.sep)
+            raw_table = os.path.splitext(fname)[0]
+        except Exception:
+            self.tbConsole.append("Błędna struktura katalogów.")
+            return
+
+        table_name = re.sub(r"[^a-zA-Z0-9_]", "_", raw_table).lower()[:60]
+        if table_name != raw_table:
+            self.tbConsole.append(f"Zmieniono nazwę tabeli: {raw_table} → {table_name}")
+
+        user = self.le_pg_username.text()
+        password = self.le_pg_password.text()
+        port = self.le_pg_port.text()
+
+        try:
+            conn = psycopg2.connect(
+                host="localhost",
+                port=port,
+                user=user,
+                password=password,
+                dbname="postgres"
+            )
+            conn.autocommit = True
+            cur = conn.cursor()
+
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+            if cur.fetchone():
+                self.tbConsole.append(f"Baza istnieje: {db_name}")
+            else:
+                cur.execute(f'CREATE DATABASE "{db_name}"')
+                self.tbConsole.append(f"Utworzono bazę: {db_name}")
+
+            cur.close()
+            conn.close()
+        except Exception as e:
+            self.tbConsole.append(str(e))
+            return
+
+        try:
+            conn = psycopg2.connect(
+                host="localhost",
+                port=port,
+                user=user,
+                password=password,
+                dbname=db_name
+            )
+            conn.autocommit = True
+            cur = conn.cursor()
+
+            cur.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+            self.tbConsole.append("PostGIS włączony")
+
+            cur.execute(
+                "SELECT 1 FROM information_schema.schemata WHERE schema_name = %s",
+                (schema_name,)
+            )
+            if cur.fetchone():
+                self.tbConsole.append(f"Schemat istnieje: {schema_name}")
+            else:
+                cur.execute(f'CREATE SCHEMA "{schema_name}"')
+                self.tbConsole.append(f"Utworzono schemat: {schema_name}")
+
+            cur.execute(
+                """
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = %s AND table_name = %s
+                """,
+                (schema_name, table_name)
+            )
+            if cur.fetchone():
+                self.tbConsole.append(f"Pominięto import – tabela istnieje: {schema_name}.{table_name}")
+                cur.close()
+                conn.close()
+                return
+
+            cur.close()
+            conn.close()
+        except Exception as e:
+            self.tbConsole.append(str(e))
+            return
+
+        layer = QgsVectorLayer(path, table_name, "ogr")
+        if not layer.isValid():
+            self.tbConsole.append("Nie można wczytać warstwy SHP.")
+            return
+
+        uri = QgsDataSourceUri()
+        uri.setConnection("localhost", port, db_name, user, password)
+        uri.setDataSource(schema_name, table_name, "geom")
+
+        res = QgsVectorLayerExporter.exportLayer(
+            layer,
+            uri.uri(),
+            "postgres",
+            layer.crs(),
+            False,
+            {"schema": schema_name, "table": table_name, "overwrite": False, "createSpatialIndex": True}
+        )
+
+        if res[0] != QgsVectorLayerExporter.NoError:
+            self.tbConsole.append(res[1])
+            return
+
+        self.tbConsole.append(f"Zaimportowano: {db_name}.{schema_name}.{table_name}")
+
+    def pg_load(self):
+        idx = self.tv_pg_load.currentIndex()
+        if not idx.isValid():
+            self.tbConsole.append("Nie wybrano warstwy.")
+            return
+
+        model = self.tv_pg_load.model()
+        item = model.itemFromIndex(idx)
+
+        parent_schema = item.parent()
+        if parent_schema is None:
+            self.tbConsole.append("Wybierz tabelę.")
+            return
+
+        parent_db = parent_schema.parent()
+        if parent_db is None:
+            self.tbConsole.append("Wybierz tabelę.")
+            return
+
+        table_name = item.text()
+        schema_name = parent_schema.text()
+        db_name = parent_db.text()
+
+        user = self.le_pg_username.text()
+        password = self.le_pg_password.text()
+        port = self.le_pg_port.text() or "5432"
+
+        uri = QgsDataSourceUri()
+        uri.setConnection("localhost", port, db_name, user, password)
+        uri.setDataSource(schema_name, table_name, "geom")
+
+        crs = self.crs_pg_load_widget.crs()
+        if crs.isValid():
+            layer = QgsVectorLayer(uri.uri(), table_name, "postgres")
+            layer.setCrs(crs)
+        else:
+            layer = QgsVectorLayer(uri.uri(), table_name, "postgres")
+
+        if not layer.isValid():
+            self.tbConsole.append("Nie udało się wczytać warstwy z PostGIS.")
+            return
+
+        QgsProject.instance().addMapLayer(layer)
+        self.tbConsole.append(f"Wczytano warstwę: {db_name}.{schema_name}.{table_name}")
+
+        qml_dir = os.path.join(
+            self.resource_path.filePath(),
+            "DANE_MAPY_ZASADNICZE",
+            db_name,
+            schema_name
+        )
+
+        matched_qml = None
+        for fname in os.listdir(qml_dir):
+            if not fname.lower().endswith(".qml"):
+                continue
+            base = os.path.splitext(fname)[0]
+            sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", base).lower()[:60]
+            if sanitized == table_name:
+                matched_qml = os.path.join(qml_dir, fname)
+                break
+
+        if matched_qml and os.path.exists(matched_qml):
+            layer.loadNamedStyle(matched_qml)
+            layer.triggerRepaint()
+            self.tbConsole.append(f"Zastosowano styl: {os.path.basename(matched_qml)}")
+        else:
+            self.tbConsole.append("Nie znaleziono pasującego pliku QML.")
+
+    def pg_delete(self):
+        idx = self.tv_pg_load.currentIndex()
+        if not idx.isValid():
+            self.tbConsole.append("Nie wybrano warstwy.")
+            return
+
+        model = self.tv_pg_load.model()
+        item = model.itemFromIndex(idx)
+
+        parent_schema = item.parent()
+        if parent_schema is None:
+            self.tbConsole.append("Wybierz tabelę.")
+            return
+
+        parent_db = parent_schema.parent()
+        if parent_db is None:
+            self.tbConsole.append("Wybierz tabelę.")
+            return
+
+        table_name = item.text()
+        schema_name = parent_schema.text()
+        db_name = parent_db.text()
+
+        confirm = QMessageBox.question(
+            self,
+            "Potwierdź usunięcie",
+            f"Czy na pewno chcesz usunąć tabelę {db_name}.{schema_name}.{table_name} z bazy?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if confirm != QMessageBox.Yes:
+            self.tbConsole.append("Usuwanie anulowane.")
+            return
+
+        user = self.le_pg_username.text()
+        password = self.le_pg_password.text()
+        port = self.le_pg_port.text() or "5432"
+        host = "localhost"
+
+        try:
+            import psycopg2
+            conn = psycopg2.connect(
+                host=host,
+                port=port,
+                dbname=db_name,
+                user=user,
+                password=password
+            )
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute(f'DROP TABLE IF EXISTS "{schema_name}"."{table_name}" CASCADE;')
+            cur.close()
+            conn.close()
+            self.tbConsole.append(f"Tabela {db_name}.{schema_name}.{table_name} została usunięta.")
+        except Exception as e:
+            self.tbConsole.append(f"Błąd przy usuwaniu tabeli: {str(e)}")
+        self.load_pg_tree()
+
+    def pg_split(self):
+        import tempfile
+
+        layer = iface.activeLayer()
+        if not layer:
+            self.tbConsole.append("Brak aktywnej warstwy.")
+            return
+
+        if not isinstance(layer, QgsVectorLayer):
+            self.tbConsole.append("Aktywna warstwa nie jest wektorowa.")
+            return
+
+        if layer.dataProvider().name().lower() != "postgres":
+            self.tbConsole.append("Warstwa nie pochodzi z bazy Postgres.")
+            return
+
+        field_name = "Layer"
+        if field_name not in [f.name() for f in layer.fields()]:
+            self.tbConsole.append(f"Kolumna '{field_name}' nie istnieje w warstwie.")
+            return
+
+        base_layer_name = layer.name()
+        group = QgsProject.instance().layerTreeRoot().addGroup(base_layer_name)
+
+        uri = QgsDataSourceUri(layer.source())
+        schema = uri.schema()
+        table = uri.table()
+        geom_col = uri.geometryColumn()
+        db_name = uri.database()
+        host = uri.host()
+        port = uri.port()
+        user = uri.username()
+        password = uri.password()
+
+        try:
+            import psycopg2
+            conn = psycopg2.connect(
+                host=host,
+                port=port,
+                dbname=db_name,
+                user=user,
+                password=password
+            )
+            cur = conn.cursor()
+            cur.execute(f'SELECT DISTINCT "{field_name}" FROM "{schema}"."{table}";')
+            unique_values = [row[0] for row in cur.fetchall()]
+            cur.close()
+            conn.close()
+        except Exception as e:
+            self.tbConsole.append(f"Błąd przy pobieraniu unikalnych wartości: {str(e)}")
+            return
+
+        self.tbConsole.append(f"Rozpoczynam dzielenie warstwy '{base_layer_name}' na {len(unique_values)} podwarstw...")
+
+        tmp_qml = tempfile.NamedTemporaryFile(suffix=".qml", delete=False).name
+        layer.saveNamedStyle(tmp_qml)
+
+        for val in unique_values:
+            val_str = str(val).replace("'", "''")
+            sql_filter = f'"{field_name}" = \'{val_str}\''
+            filtered_layer_name = str(val)
+
+            uri.setDataSource(schema, table, geom_col, sql_filter)
+            split_layer = QgsVectorLayer(uri.uri(), filtered_layer_name, "postgres")
+            if split_layer.isValid():
+                split_layer.setCrs(layer.crs())
+                split_layer.loadNamedStyle(tmp_qml)
+                split_layer.triggerRepaint()
+
+                QgsProject.instance().addMapLayer(split_layer, False)
+                group.addLayer(split_layer)
+                self.tbConsole.append(f"Utworzono warstwę: {filtered_layer_name}")
+            else:
+                self.tbConsole.append(f"Nie udało się utworzyć warstwy dla: {filtered_layer_name}")
+
+        self.tbConsole.append(f"Zakończono dzielenie warstwy '{base_layer_name}'.")
+
+    def pg_pound_replace(self):
+        layer = iface.activeLayer()
+        if not layer:
+            self.tbConsole.append("Brak aktywnej warstwy.")
+            return
+
+        if not isinstance(layer, QgsVectorLayer):
+            self.tbConsole.append("Aktywna warstwa nie jest wektorowa.")
+            return
+
+        if layer.dataProvider().name().lower() != "postgres":
+            self.tbConsole.append("Warstwa nie pochodzi z bazy Postgres.")
+            return
+
+        field_name = "Text"
+        if field_name not in [f.name() for f in layer.fields()]:
+            self.tbConsole.append(f"Kolumna '{field_name}' nie istnieje w warstwie.")
+            return
+
+        uri = QgsDataSourceUri(layer.source())
+        schema = uri.schema()
+        table = uri.table()
+        db_name = uri.database()
+        host = uri.host()
+        port = uri.port()
+        user = uri.username()
+        password = uri.password()
+
+        try:
+            import psycopg2
+            conn = psycopg2.connect(
+                host=host,
+                port=port,
+                dbname=db_name,
+                user=user,
+                password=password
+            )
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute(f"""
+                UPDATE "{schema}"."{table}"
+                SET "{field_name}" = REPLACE("{field_name}", '£', 'Ł')
+                WHERE "{field_name}" LIKE '%£%';
+            """)
+            affected = cur.rowcount
+            cur.close()
+            conn.close()
+            self.tbConsole.append(f"Zaktualizowano {affected} rekordów w kolumnie '{field_name}'.")
+        except Exception as e:
+            self.tbConsole.append(f"Błąd przy aktualizacji kolumny '{field_name}': {str(e)}")
 
 
 

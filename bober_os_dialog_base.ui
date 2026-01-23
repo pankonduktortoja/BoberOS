@@ -9,7 +9,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1000</width>
+    <width>1100</width>
     <height>600</height>
    </rect>
   </property>
@@ -21,13 +21,13 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>1000</width>
+    <width>1100</width>
     <height>600</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>1000</width>
+    <width>1100</width>
     <height>600</height>
    </size>
   </property>
@@ -46,7 +46,7 @@
     <rect>
      <x>10</x>
      <y>560</y>
-     <width>981</width>
+     <width>1081</width>
      <height>32</height>
     </rect>
    </property>
@@ -145,7 +145,7 @@
     <rect>
      <x>10</x>
      <y>9</y>
-     <width>981</width>
+     <width>1081</width>
      <height>541</height>
     </rect>
    </property>
@@ -153,7 +153,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>6</number>
       </property>
       <widget class="QWidget" name="tab_10">
        <attribute name="title">
@@ -293,7 +293,7 @@ p, li { white-space: pre-wrap; }
          <rect>
           <x>10</x>
           <y>10</y>
-          <width>611</width>
+          <width>711</width>
           <height>491</height>
          </rect>
         </property>
@@ -514,7 +514,7 @@ p, li { white-space: pre-wrap; }
          <rect>
           <x>10</x>
           <y>0</y>
-          <width>611</width>
+          <width>711</width>
           <height>501</height>
          </rect>
         </property>
@@ -530,7 +530,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -677,7 +677,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -736,7 +736,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>-1</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -865,7 +865,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -981,7 +981,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1093,12 +1093,12 @@ p, li { white-space: pre-wrap; }
          <rect>
           <x>10</x>
           <y>0</y>
-          <width>611</width>
+          <width>711</width>
           <height>501</height>
          </rect>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_12">
          <attribute name="title">
@@ -1109,7 +1109,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1204,7 +1204,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1311,12 +1311,12 @@ p, li { white-space: pre-wrap; }
          <rect>
           <x>10</x>
           <y>0</y>
-          <width>611</width>
+          <width>711</width>
           <height>501</height>
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="tab_21">
          <attribute name="title">
@@ -1327,7 +1327,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1437,7 +1437,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1562,7 +1562,7 @@ p, li { white-space: pre-wrap; }
          <rect>
           <x>10</x>
           <y>0</y>
-          <width>611</width>
+          <width>711</width>
           <height>501</height>
          </rect>
         </property>
@@ -1578,7 +1578,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1726,7 +1726,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1791,7 +1791,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1905,7 +1905,7 @@ p, li { white-space: pre-wrap; }
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>601</width>
+            <width>701</width>
             <height>471</height>
            </rect>
           </property>
@@ -1967,6 +1967,280 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Wszystkie operacje dzieją się na wybranej geopaczce w sekcji Ustawienia. Warstwy należy najpierw załadować przyciskiem załaduj.&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Operacja vacuum zalecana jest po usunięciu znaczących warstw, nie trzeba tego robić np. po zmianie nazwy.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="tab_19">
+       <attribute name="title">
+        <string>Mapy DXF</string>
+       </attribute>
+       <widget class="QTabWidget" name="tab55">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>0</y>
+          <width>711</width>
+          <height>501</height>
+         </rect>
+        </property>
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="tab_20">
+         <attribute name="title">
+          <string>Narzędzia ogólne</string>
+         </attribute>
+         <widget class="QWidget" name="verticalLayoutWidget_14">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>701</width>
+            <height>471</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_16">
+           <item>
+            <widget class="QLabel" name="label_31">
+             <property name="text">
+              <string>Wprowadź nazwę użytkownika</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="le_pg_username"/>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_32">
+             <property name="text">
+              <string>Wprowadź hasło do bazy danych</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="le_pg_password"/>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_33">
+             <property name="text">
+              <string>Wprowadź port</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="le_pg_port"/>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_pg_refresh">
+             <property name="text">
+              <string>Odśwież źródło dla warstw mapy w projekcie</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_pg_split">
+             <property name="text">
+              <string>Rozdziel aktywną warstwę na poszczególne elementy mapy (tworzy grupę)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_pg_pound_replace">
+             <property name="text">
+              <string>Zamień £ na Ł w tabeli aktywnej warstwy</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser_17">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>220</height>
+              </size>
+             </property>
+             <property name="html">
+              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Przed korzystaniem z narzędzia musimy wpisać nazwę użytkownika (postgres), hasło do bazy danych (postgres) i port (5432).&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Po wpisaniu wartości zostaną zapisane, więc nie trzeba ich wpisywać przy każdym otwarciu programu.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Jeżeli otwieramy projekt w którym jest już wgrana mapa zasadnicza innego użytkownika klikamy przycisk &amp;quot;Odśwież źródło dla warstw mapy w projekcie&amp;quot; - zakładając, że zaimportowaliśmy mapę do lokalnej bazy danych warstwy się odświeżą i będą widoczne.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Jeżeli nie mamy takiej warstwy należy najpierw ją zaimportować w zakładce &amp;quot;Importuj do bazy danych&amp;quot;.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Jeżeli chcemy rozdzielić załadowaną mapę zasadniczą (tak jak przy imporcie z wtyczki AnotherDXFImporter) - zaznaczamy warstwę i klikamy przycisk &amp;quot;Rozdziel aktywną warstwę na poszczególne elementy mapy (tworzy grupę)&amp;quot;.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Możemy zamienić £ na Ł przyciskiem &amp;quot;Zamień £ na Ł w tabeli aktywnej warstwy&amp;quot;  (najczęściej w przypadku łąk) jeśli warstwa zaimportowana została ze złym kodowaniem (to wybieramy na etapie importu we wtyczce AnotherDXFImporter - opcja tutaj jest tylko obejściem bez konieczności dodatkowego importu).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+        <widget class="QWidget" name="tab_22">
+         <attribute name="title">
+          <string>Importuj do bazy danych</string>
+         </attribute>
+         <widget class="QWidget" name="verticalLayoutWidget_16">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>701</width>
+            <height>471</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_18">
+           <item>
+            <widget class="QTreeView" name="tv_pg_import">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>200</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_pg_import">
+             <property name="text">
+              <string>Importuj wybraną warstwę do bazy danych</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_25">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser_15">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>170</height>
+              </size>
+             </property>
+             <property name="html">
+              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Przed importem mapy zasadniczej do bazy danych musimy przerobić dxf we wtyczce AnotherDXFImporter (tak jak zazwyczaj).&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Mapę zasadniczą importujemy zawsze do formatu .shp.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Następnie taką mapę (wszystkie pliki łącznie z .qml) przenosimy do odpowiedniego folderu na serwerze w strukturze:&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;L:\QGIS\DANE\DANE_MAPY_ZASADNICZE\{NAZWA GMINY/OBSZARU}\{NAZWA TEMATU}.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Nie tworzymy żadnych dodatkowych podfolderów, wszystko według tego schematu.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Aby zaimportować warstwę wybieramy warstwę z drzewka i klikamy przycisk - skrypt sam znajdzie odpowiednią ścieżkę w naszej bazie danych.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+        <widget class="QWidget" name="tab_23">
+         <attribute name="title">
+          <string>Załaduj mapę z bazy danych</string>
+         </attribute>
+         <widget class="QWidget" name="verticalLayoutWidget_17">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>701</width>
+            <height>473</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_19">
+           <item>
+            <widget class="QTreeView" name="tv_pg_load">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>200</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_pg_tree_load">
+             <property name="text">
+              <string>Wyświetl/odśwież strukturę bazy danych</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_pg_load">
+             <property name="text">
+              <string>Załaduj wybraną warstwę do projektu</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label">
+             <property name="text">
+              <string>Wybierz układ odniesienia ładowanej warstwy (opcjonalne)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QgsProjectionSelectionWidget" name="crs_pg_load_widget"/>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_pg_delete">
+             <property name="text">
+              <string>Usuń wybraną warstwę z bazy danych</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_23">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser_16">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>150</height>
+              </size>
+             </property>
+             <property name="html">
+              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Aby załadować lub odświeżyć widok bazy danych musimy najpierw kliknąć przycisk &amp;quot;Wyświetl/odśwież strukturę bazy danych&amp;quot;.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Aby załadować do projektu warstwę z mapą z bazy danych wybieramy odpowiedni obiekt z drzewka i klikamy przycisk &amp;quot;Załaduj wybraną warstwę do projektu&amp;quot;.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Docelowy układ odniesienia możemy określić w okienku z wyborem układu.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
            </item>
