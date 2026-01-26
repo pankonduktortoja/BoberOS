@@ -25,17 +25,19 @@ import time
 import re
 
 from qgis.core import *
-from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsCoordinateTransformContext, QgsWkbTypes, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature, QgsVectorLayerExporter
+from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsReadWriteContext, QgsCoordinateTransformContext, QgsWkbTypes, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature, QgsVectorLayerExporter, QgsExpressionContext, QgsExpressionContextUtils, QgsRectangle, QgsMapRendererCustomPainterJob
 from qgis.PyQt import *
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import *
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap, QPainter, QColor, QImage
 from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog, QFileSystemModel
-from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox
-from PyQt5.QtCore import Qt, QVariant, QDir
+from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView
+from PyQt5.QtCore import Qt, QVariant, QDir, QSize
+from qgis.PyQt.QtXml import QDomDocument
 import sqlite3
 import processing
 import psycopg2
+import tempfile
 from qgis.gui import *
 from datetime import datetime
 from qgis.utils import iface
@@ -162,6 +164,31 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_pg_delete.clicked.connect(self.pg_delete)
         self.pb_pg_split.clicked.connect(self.pg_split)
         self.pb_pg_pound_replace.clicked.connect(self.pg_pound_replace)
+        self.tv_pg_import.header().setStretchLastSection(False)
+        self.tv_pg_import.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        #STYLE TREEVIEW + APPLY
+        self.cb_style_layer.setFilters(QgsMapLayerProxyModel.VectorLayer)
+        self.style_model = QFileSystemModel(self)
+        self.style_root_path = os.path.join(self.resource_path.filePath(), "DANE_STYLE_QML")
+        self.style_model.setRootPath(self.style_root_path)
+        self.style_model.setFilter(QDir.AllDirs | QDir.Files | QDir.NoDotAndDotDot)
+        self.style_model.setNameFilterDisables(False)
+        self.style_model.setNameFilters([])
+        self.tv_style.setModel(self.style_model)
+        self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
+        self.tv_style.setColumnHidden(1, True)
+        self.tv_style.setColumnHidden(2, True)
+        self.tv_style.setColumnHidden(3, True)
+        self.tv_style.header().setStretchLastSection(False)
+        self.tv_style.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.cb_style_layer.layerChanged.connect(self.update_style_filter)
+        self.tv_style.selectionModel().selectionChanged.connect(self.update_style_button)
+        self.pb_style_layer.clicked.connect(self.apply_style_to_layer)
+        self.pb_style_layer.setEnabled(False)
+        self.style_model.setNameFilters(["__nothing__"])
+        self._previous_layer_styles = {}
+        self.pb_apply_previous_style_to_layer.clicked.connect(self.apply_previous_style_to_layer)
+        self.pb_export_active_layer_style.clicked.connect(self.export_active_layer_style)
         #POSTGRES CREDENTIALS
         self.le_pg_username.textChanged.connect(lambda text: self.save_setting("pg_username", text))
         self.le_pg_password.textChanged.connect(lambda text: self.save_setting("pg_password", text))
@@ -1765,106 +1792,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         QgsProject.instance().addMapLayer(out_layer)
 
         self.tbConsole.append("Analiza zgodności POG z MPZP - koniec\n")
-
-    def style_save_single(self):
-        self.progressBar.reset()
-        self.progressBar.setValue(0)
-        self.tbConsole.append("Rozpoczynam zapisywanie stylu aktywnej warstwy...")
-
-        layer = self.iface.activeLayer()
-
-        if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy. Operacja przerwana.")
-            self.progressBar.setValue(0)
-            return
-
-        if layer.type() != QgsMapLayerType.VectorLayer:
-            self.tbConsole.append(f"Warstwa '{layer.name()}' nie jest warstwą wektorową.")
-            self.progressBar.setValue(0)
-            return
-
-        layer_name = layer.name()
-
-        try:
-            layer.saveStyleToDatabase(
-                layer_name,
-                "",
-                True,
-                "",
-                QgsMapLayer.AllStyleCategories
-            )
-
-            layer.triggerRepaint()
-
-            self.progressBar.setValue(100)
-            self.tbConsole.append(f"Zapisano styl warstwy '{layer_name}'.")
-
-        except Exception as e:
-            self.tbConsole.append(f"Błąd podczas zapisywania stylu: {str(e)}")
-            self.progressBar.setValue(0)
-
-    def style_save_all(self):
-        reply = QMessageBox.question(
-            self,
-            "Potwierdzenie",
-            "Czy na pewno chcesz zapisać style dla wszystkich warstw wektorowych?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-
-        if reply != QMessageBox.Yes:
-            self.tbConsole.append("Operacja anulowana.")
-            return
-
-        self.tbConsole.append("Rozpoczynam zapisywanie stylów dla wszystkich warstw...")
-        self.progressBar.reset()
-        self.progressBar.setValue(0)
-
-        project = QgsProject.instance()
-        vector_layers = [
-            layer for layer in project.mapLayers().values()
-            if layer.type() == QgsMapLayerType.VectorLayer
-        ]
-
-        layer_count_total = len(vector_layers)
-
-        if layer_count_total == 0:
-            self.tbConsole.append("Brak warstw wektorowych w projekcie — nic do zapisania.")
-            return
-
-        self.tbConsole.append(f"Liczba warstw do zapisania: {layer_count_total}")
-
-        self.progressBar.setMaximum(100)
-
-        processed = 0
-
-        for layer in vector_layers:
-            layer_name = layer.name()
-
-            try:
-                layer.saveStyleToDatabase(
-                    layer_name,
-                    "",
-                    True,
-                    "",
-                    QgsMapLayer.AllStyleCategories
-                )
-
-                layer.triggerRepaint()
-                processed += 1
-
-                progress = int((processed / layer_count_total) * 100)
-                self.progressBar.setValue(progress)
-
-                self.tbConsole.append(
-                    f"[{processed}/{layer_count_total}] Zapisano styl dla: {layer_name}"
-                )
-
-            except Exception as e:
-                self.tbConsole.append(f"Błąd przy zapisywaniu stylu warstwy '{layer_name}': {str(e)}")
-
-        self.tbConsole.append("Zakończono zapisywanie stylów dla wszystkich warstw.")
-        self.progressBar.setValue(100)
 
     def reset_fid_values(self):
         layer = self.iface.activeLayer()
@@ -4028,8 +3955,226 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         except Exception as e:
             self.tbConsole.append(f"Błąd przy aktualizacji kolumny '{field_name}': {str(e)}")
 
+    def update_style_filter(self, layer):
+        if not layer:
+            self.style_model.setNameFilters(["__nothing__"])
+            self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
+            self.pb_style_layer.setEnabled(False)
+            return
+
+        g = layer.geometryType()
+        if g == QgsWkbTypes.PointGeometry:
+            filters = ["*_point.qml"]
+        elif g == QgsWkbTypes.LineGeometry:
+            filters = ["*_line.qml"]
+        elif g == QgsWkbTypes.PolygonGeometry:
+            filters = ["*_polygon.qml"]
+        else:
+            filters = ["__nothing__"]
+
+        self.style_model.setNameFilters(filters)
+        self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
+        self.pb_style_layer.setEnabled(False)
+
+    def update_style_button(self):
+        indexes = self.tv_style.selectionModel().selectedIndexes()
+        if not indexes:
+            self.pb_style_layer.setEnabled(False)
+            return
+
+        index = indexes[0]
+        path = self.style_model.filePath(index)
+        self.pb_style_layer.setEnabled(path.lower().endswith(".qml"))
+
+    def apply_style_to_layer(self):
+        layer = self.cb_style_layer.currentLayer()
+        if layer is None:
+            self.tbConsole.append("Nie wybrano warstwy do wczytania stylu.")
+            return
+
+        indexes = self.tv_style.selectionModel().selectedIndexes()
+        if not indexes:
+            self.tbConsole.append(f"Nie wybrano stylu do wczytania.")
+            return
+
+        index = indexes[0]
+        path = self.style_model.filePath(index)
+        if not path.lower().endswith(".qml"):
+            self.tbConsole.append(f"Wybrany plik nie jest stylem .qml: '{path}'.")
+            return
+
+        mgr = layer.styleManager()
+        current_name = mgr.currentStyle()
+        backup_name = f"_backup_{layer.id()}_{current_name}"
+        if backup_name in mgr.styles():
+            mgr.removeStyle(backup_name)
+        mgr.addStyleFromLayer(backup_name)
+        self._previous_layer_styles[layer.id()] = backup_name
+
+        layer.loadNamedStyle(path)
+        layer.triggerRepaint()
+
+        style_name = path.split("/")[-1] if "/" in path else path.split("\\")[-1]
+        self.tbConsole.append(f"Wczytano styl '{style_name}' dla warstwy -> '{layer.name()}'.")
+
+    def apply_previous_style_to_layer(self):
+        layer = self.cb_style_layer.currentLayer()
+        if layer is None:
+            self.tbConsole.append("Nie wybrano warstwy do wczytania ostatnio zmienionego stylu.")
+            return
+
+        backup_name = self._previous_layer_styles.get(layer.id())
+        if not backup_name:
+            self.tbConsole.append(f"Nie zapisano poprzedniego stylu dla warstwy '{layer.name()}'.")
+            return
+        mgr: QgsMapLayerStyleManager = layer.styleManager()
+        if backup_name not in mgr.styles():
+            self.tbConsole.append(f"Nie znaleziono zapisanego poprzedniego stylu '{backup_name}' w warstwie '{layer.name()}'.")
+            return
+
+        mgr.setCurrentStyle(backup_name)
+        layer.triggerRepaint()
+        self.tbConsole.append(f"Wczytano ostatnio zmieniony styl dla warstwy '{layer.name()}'.")
+
+    def export_active_layer_style(self):
+        layer = self.iface.activeLayer()
+        if layer is None:
+            self.tbConsole.append("Nie wybrano aktywnej warstwy.")
+            return
+
+        if not isinstance(layer, QgsVectorLayer):
+            self.tbConsole.append(f"Aktywna warstwa '{layer.name()}' nie jest warstwą wektorową.")
+            return
+
+        g = layer.geometryType()
+        if g == QgsWkbTypes.PointGeometry:
+            suffix = "_point.qml"
+        elif g == QgsWkbTypes.LineGeometry:
+            suffix = "_line.qml"
+        elif g == QgsWkbTypes.PolygonGeometry:
+            suffix = "_polygon.qml"
+        else:
+            self.tbConsole.append(f"Nieobsługiwany typ geometrii dla warstwy '{layer.name()}'.")
+            return
+
+        base_name = self.le_export_active_layer_style.text().strip()
+        if not base_name:
+            self.tbConsole.append("Nie podano nazwy dla eksportu stylu.")
+            return
+
+        file_name = f"{base_name}{suffix}"
+        export_path = os.path.join(self.style_root_path, file_name)
+
+        success, error_message = layer.saveNamedStyle(export_path)
+        if success:
+            self.tbConsole.append(f"Styl warstwy '{layer.name()}' został wyeksportowany jako '{file_name}'.")
+            self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
+        else:
+            self.tbConsole.append(f"Błąd podczas eksportu stylu: {error_message}")
+
+    def style_save_single(self):
+        self.progressBar.reset()
+        self.progressBar.setValue(0)
+        self.tbConsole.append("Rozpoczynam zapisywanie stylu aktywnej warstwy...")
+
+        layer = self.iface.activeLayer()
+
+        if not layer:
+            self.tbConsole.append("Brak aktywnej warstwy. Operacja przerwana.")
+            self.progressBar.setValue(0)
+            return
+
+        if layer.type() != QgsMapLayerType.VectorLayer:
+            self.tbConsole.append(f"Warstwa '{layer.name()}' nie jest warstwą wektorową.")
+            self.progressBar.setValue(0)
+            return
+
+        if not layer.source().lower().endswith(".gpkg"):
+            self.tbConsole.append(f"Warstwa '{layer.name()}' nie pochodzi z GeoPackage. Pomijam.")
+            self.progressBar.setValue(0)
+            return
+
+        layer_name = layer.name()
+
+        try:
+            layer.saveStyleToDatabase(
+                layer_name,
+                "",
+                True,
+                "",
+                QgsMapLayer.AllStyleCategories
+            )
+
+            layer.triggerRepaint()
+            self.progressBar.setValue(100)
+            self.tbConsole.append(f"Zapisano styl warstwy '{layer_name}'.")
+
+        except Exception as e:
+            self.tbConsole.append(f"Błąd podczas zapisywania stylu: {str(e)}")
+            self.progressBar.setValue(0)
 
 
+    def style_save_all(self):
+        reply = QMessageBox.question(
+            self,
+            "Potwierdzenie",
+            "Czy na pewno chcesz zapisać style dla wszystkich warstw wektorowych z GeoPackage?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply != QMessageBox.Yes:
+            self.tbConsole.append("Operacja anulowana.")
+            return
+
+        self.tbConsole.append("Rozpoczynam zapisywanie stylów dla wszystkich warstw z GeoPackage...")
+        self.progressBar.reset()
+        self.progressBar.setValue(0)
+
+        project = QgsProject.instance()
+        vector_layers = [
+            layer for layer in project.mapLayers().values()
+            if layer.type() == QgsMapLayerType.VectorLayer and layer.source().lower().endswith(".gpkg")
+        ]
+
+        layer_count_total = len(vector_layers)
+
+        if layer_count_total == 0:
+            self.tbConsole.append("Brak warstw wektorowych z GeoPackage w projekcie — nic do zapisania.")
+            return
+
+        self.tbConsole.append(f"Liczba warstw do zapisania: {layer_count_total}")
+
+        self.progressBar.setMaximum(100)
+        processed = 0
+
+        for layer in vector_layers:
+            layer_name = layer.name()
+
+            try:
+                layer.saveStyleToDatabase(
+                    layer_name,
+                    "",
+                    True,
+                    "",
+                    QgsMapLayer.AllStyleCategories
+                )
+
+                layer.triggerRepaint()
+                processed += 1
+
+                progress = int((processed / layer_count_total) * 100)
+                self.progressBar.setValue(progress)
+
+                self.tbConsole.append(
+                    f"[{processed}/{layer_count_total}] Zapisano styl dla: {layer_name}"
+                )
+
+            except Exception as e:
+                self.tbConsole.append(f"Błąd przy zapisywaniu stylu warstwy '{layer_name}': {str(e)}")
+
+        self.tbConsole.append("Zakończono zapisywanie stylów dla wszystkich warstw z GeoPackage.")
+        self.progressBar.setValue(100)
 
 
 # xD

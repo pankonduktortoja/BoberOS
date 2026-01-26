@@ -153,7 +153,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>6</number>
+       <number>5</number>
       </property>
       <widget class="QWidget" name="tab_10">
        <attribute name="title">
@@ -1567,7 +1567,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="tab_11">
          <attribute name="title">
@@ -1717,9 +1717,86 @@ p, li { white-space: pre-wrap; }
           </layout>
          </widget>
         </widget>
+        <widget class="QWidget" name="tab_18">
+         <attribute name="title">
+          <string>Menadżer GPKG</string>
+         </attribute>
+         <widget class="QWidget" name="verticalLayoutWidget_13">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>701</width>
+            <height>471</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_15">
+           <item>
+            <widget class="QTableWidget" name="table_gpkg">
+             <property name="columnCount">
+              <number>0</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QPushButton" name="pb_gpkg_load_layers">
+               <property name="text">
+                <string>Załaduj warstwy</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pb_gpkg_delete_layers">
+               <property name="text">
+                <string>Usuń wybrane warstwy</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pb_gpkg_rename_layers">
+               <property name="text">
+                <string>Zmień nazwę</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pb_gpkg_vacuum_layers">
+               <property name="text">
+                <string>Vacuum</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser_11">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>70</height>
+              </size>
+             </property>
+             <property name="html">
+              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Wszystkie operacje dzieją się na wybranej geopaczce w sekcji Ustawienia. Warstwy należy najpierw załadować przyciskiem załaduj.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Operacja vacuum zalecana jest po usunięciu znaczących warstw, nie trzeba tego robić np. po zmianie nazwy.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
         <widget class="QWidget" name="tab_14">
          <attribute name="title">
-          <string>Zapis stylu do GPKG</string>
+          <string>Menadżer stylów</string>
          </attribute>
          <widget class="QWidget" name="verticalLayoutWidget_11">
           <property name="geometry">
@@ -1727,7 +1804,7 @@ p, li { white-space: pre-wrap; }
             <x>0</x>
             <y>0</y>
             <width>701</width>
-            <height>471</height>
+            <height>505</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_13">
@@ -1741,22 +1818,73 @@ p, li { white-space: pre-wrap; }
            <item>
             <widget class="QPushButton" name="pb_style_save_all">
              <property name="text">
-              <string>Zapisz styl w gpkg dla wszystkich warstw</string>
+              <string>Zapisz styl w gpkg dla wszystkich warstw w projekcie</string>
              </property>
             </widget>
            </item>
            <item>
-            <spacer name="verticalSpacer_9">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
+            <widget class="QTreeView" name="tv_style">
+             <property name="maximumSize">
               <size>
-               <width>20</width>
-               <height>40</height>
+               <width>16777215</width>
+               <height>200</height>
               </size>
              </property>
-            </spacer>
+            </widget>
+           </item>
+           <item>
+            <layout class="QGridLayout" name="gridLayout_2">
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_29">
+               <property name="text">
+                <string>Wybierz warstwę wektorową, aby przefiltrować dostępne style</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QgsMapLayerComboBox" name="cb_style_layer"/>
+             </item>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="pb_apply_previous_style_to_layer">
+               <property name="text">
+                <string>Wczytaj styl dla warstwy przed ostatnią zmianą</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="pb_style_layer">
+               <property name="maximumSize">
+                <size>
+                 <width>300</width>
+                 <height>100</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Wczytaj styl z bazy dla wybranej warstwy</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QPushButton" name="pb_export_active_layer_style">
+               <property name="text">
+                <string>Eksportuj styl aktywnej warstwy do bazy</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLineEdit" name="le_export_active_layer_style">
+               <property name="text">
+                <string/>
+               </property>
+               <property name="placeholderText">
+                <string>Wpisz nazwę eksportowanego stylu (bez suffiksu z typem geometrii)</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <widget class="QTextBrowser" name="textBrowser_6">
@@ -1766,16 +1894,16 @@ p, li { white-space: pre-wrap; }
                <height>120</height>
               </size>
              </property>
+             <property name="locale">
+              <locale language="Polish" country="Poland"/>
+             </property>
              <property name="html">
               <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Zapisz styl w gpkg dla aktywnej warstwy&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Narzędzie zapisuje styl aktywnej warstwy wektorowej do geopaczki, która jest jej źródłem.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Zapisz styl w gpkg dla wszystkich warstw&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Nardzędzie zapisuje styl wszystkich warstw w projekcie do odpowiadających im geopaczek. &lt;span style=&quot; font-weight:600;&quot;&gt;Uwaga: może nadpisać zapisane już style.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&amp;quot;Zapisz styl w gpkg dla aktywnej warstwy&amp;quot; zapisuje styl aktywnej warstwy wektorowej do geopaczki, która jest jej źródłem.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&amp;quot;Zapisz styl w gpkg dla wszystkich warstw&amp;quot; zapisuje styl wszystkich warstw w projekcie do odpowiadających im geopaczek. &lt;span style=&quot; font-weight:600;&quot;&gt;Uwaga: może nadpisać zapisane już style.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
            </item>
@@ -1896,83 +2024,6 @@ p, li { white-space: pre-wrap; }
           </layout>
          </widget>
         </widget>
-        <widget class="QWidget" name="tab_18">
-         <attribute name="title">
-          <string>Menadżer GPKG</string>
-         </attribute>
-         <widget class="QWidget" name="verticalLayoutWidget_13">
-          <property name="geometry">
-           <rect>
-            <x>0</x>
-            <y>0</y>
-            <width>701</width>
-            <height>471</height>
-           </rect>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_15">
-           <item>
-            <widget class="QTableWidget" name="table_gpkg">
-             <property name="columnCount">
-              <number>0</number>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_2">
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <item>
-              <widget class="QPushButton" name="pb_gpkg_load_layers">
-               <property name="text">
-                <string>Załaduj warstwy</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="pb_gpkg_delete_layers">
-               <property name="text">
-                <string>Usuń wybrane warstwy</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="pb_gpkg_rename_layers">
-               <property name="text">
-                <string>Zmień nazwę</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="pb_gpkg_vacuum_layers">
-               <property name="text">
-                <string>Vacuum</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <widget class="QTextBrowser" name="textBrowser_11">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>70</height>
-              </size>
-             </property>
-             <property name="html">
-              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Wszystkie operacje dzieją się na wybranej geopaczce w sekcji Ustawienia. Warstwy należy najpierw załadować przyciskiem załaduj.&lt;/p&gt;
-&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Operacja vacuum zalecana jest po usunięciu znaczących warstw, nie trzeba tego robić np. po zmianie nazwy.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </widget>
        </widget>
       </widget>
       <widget class="QWidget" name="tab_19">
@@ -1989,7 +2040,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="tab_20">
          <attribute name="title">
