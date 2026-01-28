@@ -295,7 +295,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_wind_build_700_rad.clicked.connect(self.anal_wind_build_700_rad)
         self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)        
         self.pb_anal_pog_flood_buildings.clicked.connect(self.anal_pog_flood_buildings)
-        self.pb_anal_pog_all_buildings.clicked.connect(self.anal_pog_all_buildings)        
+        self.pb_anal_pog_all_buildings.clicked.connect(self.anal_pog_all_buildings)
+        self.pb_report_crs.clicked.connect(self.report_crs)
+        self.pb_report_encoding.clicked.connect(self.report_encoding)
         #MANAGE GPKG BUTTONS        
         self.pb_gpkg_load_layers.clicked.connect(self.load_layers)
         self.pb_gpkg_delete_layers.clicked.connect(self.delete_selected_layers)
@@ -306,15 +308,18 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_bdot_import.clicked.connect(self.import_selected_bdot_layers)
         self.pb_bdot_uncheck.clicked.connect(self.uncheck_all_bdot)
 
+    def report(self, msg):
+        self.tbConsole.append(msg)
+
     def save_setting(self, key: str, value: str):
         settings = QSettings()
         settings.setValue(f"bober_os/settings/{key}", value)
         if key == "project_path":
-            self.tbConsole.append(f"Zapisano ścieżkę do paczki projektu: {value}")
+            self.report(f"Zapisano ścieżkę do paczki projektu: {value}")
         elif key == "resource_path":
-            self.tbConsole.append(f"Zapisano ścieżkę do zasobu danych: {value}")
+            self.report(f"Zapisano ścieżkę do zasobu danych: {value}")
         elif key == "buffer_value":
-            self.tbConsole.append(f"Zapisano wartość buforu: {value} m")
+            self.report(f"Zapisano wartość buforu: {value} m")
 
     def load_setting(self, key: str) -> str:
         settings = QSettings()
@@ -353,7 +358,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         layer = QgsVectorLayer(src_path, "src", "ogr")
         if not layer.isValid():
-            self.tbConsole.append("Nie można wczytać warstwy do filtrowania.")
+            self.report("Nie można wczytać warstwy do filtrowania.")
             return
 
         for field in layer.fields():
@@ -412,7 +417,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         QSettings().setValue(self._ui_color_settings_key, color_str)
 
         if hasattr(self, "tbConsole"):
-            self.tbConsole.append(f"Ustawiono kolor tła: {color_str}")
+            self.report(f"Ustawiono kolor tła: {color_str}")
 
     def layer_area_2180(self) -> QgsVectorLayer | None:
         src_layer = self.layer_area.currentLayer()
@@ -482,12 +487,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             input_paths = [input_paths]
 
         if not input_paths:
-            self.tbConsole.append("No input files selected.")
+            self.report("No input files selected.")
             return
 
         base_dir = self.resource_path.filePath()
         if not base_dir:
-            self.tbConsole.append("Resource path not set.")
+            self.report("Resource path not set.")
             return
 
         out_dir = (
@@ -521,7 +526,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     break
 
             if not gpkg_name:
-                self.tbConsole.append(f"No rule for: {base}")
+                self.report(f"No rule for: {base}")
                 self.progressBar.setValue(int(i / total * 100))
                 continue
 
@@ -529,7 +534,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             layer = QgsVectorLayer(src_path, "src", "ogr")
             if not layer.isValid():
-                self.tbConsole.append(f"Failed to load layer: {base}")
+                self.report(f"Failed to load layer: {base}")
                 self.progressBar.setValue(int(i / total * 100))
                 continue
 
@@ -571,7 +576,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 feats.append(nf)
 
             if not feats:
-                self.tbConsole.append(f"No valid features: {base}")
+                self.report(f"No valid features: {base}")
                 self.progressBar.setValue(int(i / total * 100))
                 continue
 
@@ -584,7 +589,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 try:
                     os.remove(gpkg_path)
                 except Exception:
-                    self.tbConsole.append(f"Cannot overwrite file: {gpkg_path}")
+                    self.report(f"Cannot overwrite file: {gpkg_path}")
                     self.progressBar.setValue(int(i / total * 100))
                     continue
 
@@ -599,13 +604,13 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             )
 
             if err != QgsVectorFileWriter.NoError:
-                self.tbConsole.append(f"Write failed: {base}")
+                self.report(f"Write failed: {base}")
 
             self.progressBar.setValue(int(i / total * 100))
             QtWidgets.QApplication.processEvents()
 
         self.progressBar.setValue(100)
-        self.tbConsole.append("Operation completed.")
+        self.report("Operation completed.")
  
     def act_fop_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.fop_path.filePath())
@@ -786,7 +791,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         resource_base = self.resource_path.filePath()
         if not resource_base:
-            self.tbConsole.append("Brak ścieżki zasobu (resource_path).")
+            self.report("Brak ścieżki zasobu (resource_path).")
             QtWidgets.QApplication.processEvents()
             return
 
@@ -819,31 +824,31 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     break
 
             if not gpkg_name:
-                self.tbConsole.append(f"Brak reguły dopasowania dla: {base}\n")
+                self.report(f"Brak reguły dopasowania dla: {base}\n")
                 QtWidgets.QApplication.processEvents()
                 continue
 
             gpkg_path = os.path.join(resource_dir, gpkg_name)
             layer_name_in_gpkg = os.path.splitext(gpkg_name)[0]
 
-            self.tbConsole.append(f"Przetwarzanie pliku: {base}")
+            self.report(f"Przetwarzanie pliku: {base}")
             QtWidgets.QApplication.processEvents()
-            self.tbConsole.append(f"Docelowy GPKG: {gpkg_path}")
+            self.report(f"Docelowy GPKG: {gpkg_path}")
             QtWidgets.QApplication.processEvents()
 
             if os.path.exists(gpkg_path):
                 try:
                     os.remove(gpkg_path)
-                    self.tbConsole.append(f"Usunięto istniejący plik: {gpkg_path}")
+                    self.report(f"Usunięto istniejący plik: {gpkg_path}")
                     QtWidgets.QApplication.processEvents()
                 except Exception as e:
-                    self.tbConsole.append(f"Nie udało się usunąć GPKG:\n{e}\n")
+                    self.report(f"Nie udało się usunąć GPKG:\n{e}\n")
                     QtWidgets.QApplication.processEvents()
                     continue
 
             layer = QgsVectorLayer(gml_path, "input", "ogr")
             if not layer.isValid():
-                self.tbConsole.append(f"Nie można wczytać warstwy: {base}\n")
+                self.report(f"Nie można wczytać warstwy: {base}\n")
                 QtWidgets.QApplication.processEvents()
                 continue
 
@@ -882,28 +887,28 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             )
 
             if error[0] != QgsVectorFileWriter.NoError:
-                self.tbConsole.append(f"Błąd zapisu GPKG: {error}\n")
+                self.report(f"Błąd zapisu GPKG: {error}\n")
                 QtWidgets.QApplication.processEvents()
                 continue
 
-            self.tbConsole.append(f"Utworzono GPKG: {gpkg_path} z usuniętymi polami")
+            self.report(f"Utworzono GPKG: {gpkg_path} z usuniętymi polami")
             QtWidgets.QApplication.processEvents()
 
             try:
                 conn = sqlite3.connect(gpkg_path)
                 conn.execute("VACUUM;")
                 conn.close()
-                self.tbConsole.append("GPKG zoptymalizowany (VACUUM).")
+                self.report("GPKG zoptymalizowany (VACUUM).")
                 QtWidgets.QApplication.processEvents()
             except Exception as e:
-                self.tbConsole.append(f"Nie udało się wykonać VACUUM:\n{e}")
+                self.report(f"Nie udało się wykonać VACUUM:\n{e}")
                 QtWidgets.QApplication.processEvents()
 
             pct = int(((i + 1) / total) * 100)
             self.progressBar.setValue(pct)
             QtWidgets.QApplication.processEvents()
 
-            self.tbConsole.append("Operacja zakończona.\n")
+            self.report("Operacja zakończona.\n")
             QtWidgets.QApplication.processEvents()
 
     def build_filter_geometry(self) -> QgsGeometry | None:
@@ -950,7 +955,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layer_suffix: str,):
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak geometrii filtrującej.")
+            self.report("Brak geometrii filtrującej.")
             return
 
         bbox = filter_geom.boundingBox()
@@ -961,7 +966,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         total = len(source_files)
         if total == 0:
-            self.tbConsole.append("Brak plików do importu.")
+            self.report("Brak plików do importu.")
             return
 
         self.progressBar.setValue(0)
@@ -971,12 +976,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             layer_name = os.path.splitext(base)[0] + layer_suffix
 
             if layer_name in existing_layers:
-                self.tbConsole.append(f"Pominięto (istnieje): {layer_name}")
+                self.report(f"Pominięto (istnieje): {layer_name}")
                 continue
 
             layer = QgsVectorLayer(path, "src", "ogr")
             if not layer.isValid():
-                self.tbConsole.append(f"Błąd wczytania: {base}")
+                self.report(f"Błąd wczytania: {base}")
                 continue
 
             request = QgsFeatureRequest()
@@ -990,7 +995,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     matching_features.append(f)
 
             if not matching_features:
-                self.tbConsole.append(f"Pominięto (brak przecięć): {layer_name}. \n")
+                self.report(f"Pominięto (brak przecięć): {layer_name}. \n")
                 continue
 
             options = QgsVectorFileWriter.SaveVectorOptions()
@@ -1013,7 +1018,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             del writer
 
-            self.tbConsole.append(
+            self.report(
                 f"Dodano {len(matching_features)} obiektów → {layer_name}"
             )
 
@@ -1022,7 +1027,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 QtWidgets.QApplication.processEvents()
 
         self.progressBar.setValue(100)
-        self.tbConsole.append("Import zakończony.\n")
+        self.report("Import zakończony.\n")
 
     def import_filtered_layers(self, layers_config: dict):
         resource_base = self.resource_path.filePath()
@@ -1104,7 +1109,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )
 
         if not os.path.isdir(base_dir):
-            self.tbConsole.append("Brak katalogu DANE_BDOT.")
+            self.report("Brak katalogu DANE_BDOT.")
             return
 
         row = 0
@@ -1146,7 +1151,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         table.resizeColumnsToContents()
         table.horizontalHeader().setStretchLastSection(True)
 
-        self.tbConsole.append(f"Załadowano {row} warstw BDOT.")
+        self.report(f"Załadowano {row} warstw BDOT.")
 
     def get_matching_teryt_codes(self) -> set[str]:
         area = self.layer_area_2180()
@@ -1161,7 +1166,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         layer = QgsVectorLayer(powiat_path, "powiat", "ogr")
         if not layer.isValid():
-            self.tbConsole.append("Nie można wczytać POWIAT_TERYT.")
+            self.report("Nie można wczytać POWIAT_TERYT.")
             return set()
 
         geom = self.build_filter_geometry()
@@ -1183,17 +1188,17 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     def import_selected_bdot_layers(self):
         project_gpkg = self.project_path.filePath()
         if not project_gpkg:
-            self.tbConsole.append("Brak project_path.")
+            self.report("Brak project_path.")
             return
 
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak geometrii filtrującej.")
+            self.report("Brak geometrii filtrującej.")
             return
 
         teryt_codes = self.get_matching_teryt_codes()
         if not teryt_codes:
-            self.tbConsole.append("Brak dopasowanych TERYT.")
+            self.report("Brak dopasowanych TERYT.")
             return
 
         date = datetime.now().strftime("_%Y_%m_%d")
@@ -1216,7 +1221,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             layer = QgsVectorLayer(src, "src", "ogr")
             if not layer.isValid():
-                self.tbConsole.append(f"Błąd: {fn}")
+                self.report(f"Błąd: {fn}")
                 continue
 
             req = QgsFeatureRequest()
@@ -1232,7 +1237,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     feats.append(f)
 
             if not feats:
-                self.tbConsole.append(f"Pominięto {out_name} – brak obiektów.")
+                self.report(f"Pominięto {out_name} – brak obiektów.")
                 continue
 
             opts = QgsVectorFileWriter.SaveVectorOptions()
@@ -1254,9 +1259,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 writer.addFeature(f)
             del writer
 
-            self.tbConsole.append(f"Dodano {len(feats)} → {out_name}")
+            self.report(f"Dodano {len(feats)} → {out_name}")
 
-        self.tbConsole.append("BDOT import zakończony.\n")
+        self.report("BDOT import zakończony.\n")
     
     def uncheck_all_bdot(self):
         table = self.table_bdot
@@ -1267,7 +1272,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 item.setCheckState(Qt.Unchecked)
 
     def layout_area_gen(self):
-        self.tbConsole.append("Rozpoczynam generowanie zasięgów układów...")
+        self.report("Rozpoczynam generowanie zasięgów układów...")
 
         target_crs = QgsCoordinateReferenceSystem("EPSG:2180")
         context = QgsProject.instance().transformContext()
@@ -1276,7 +1281,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layouts = layout_manager.printLayouts()
 
         if not layouts:
-            self.tbConsole.append("Brak układów w projekcie. Nie dodano żadnych warstw.")
+            self.report("Brak układów w projekcie. Nie dodano żadnych warstw.")
             if self.progressBar:
                 self.progressBar.setValue(0)
             return
@@ -1286,77 +1291,92 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.progressBar.setValue(0)
 
         unique_extents = []
+        extent_sources = {}
         created_layers = 0
 
         for idx, layout in enumerate(layouts, start=1):
 
             layout_name = layout.name()
-            self.tbConsole.append(f"Przetwarzanie układu: {layout_name}")
+            self.report(f"Przetwarzanie układu: {layout_name}")
 
-            map_item = None
-            for item in layout.items():
-                if isinstance(item, QgsLayoutItemMap) and item.id() in ['Mapa 1', 'Map 1']:
-                    map_item = item
-                    break
+            map_items = [
+                item for item in layout.items()
+                if isinstance(item, QgsLayoutItemMap)
+            ]
 
-            if map_item is None:
-                self.tbConsole.append(f"  Układ pominięty – brak elementu mapy 'Mapa 1' / 'Map 1'.")
+            if not map_items:
+                self.report("  Układ pominięty – brak elementów mapy.")
                 self.progressBar.setValue(idx)
                 continue
 
-            extent = map_item.extent()
-            source_crs = map_item.crs()
-            transform = QgsCoordinateTransform(source_crs, target_crs, context)
+            for map_item in map_items:
 
-            try:
-                transformed_extent = transform.transformBoundingBox(extent)
-            except Exception as e:
-                self.tbConsole.append(f"  Błąd transformacji zasięgu: {e}")
-                self.progressBar.setValue(idx)
-                continue
+                extent = map_item.extent()
+                source_crs = map_item.crs()
+                transform = QgsCoordinateTransform(source_crs, target_crs, context)
 
-            if any(transformed_extent == existing for existing in unique_extents):
-                self.tbConsole.append("  Pominięto — zasięg duplikat.")
-                self.progressBar.setValue(idx)
-                continue
+                try:
+                    transformed_extent = transform.transformBoundingBox(extent)
+                except Exception as e:
+                    self.report(f"  Błąd transformacji zasięgu: {e}")
+                    continue
 
-            unique_extents.append(transformed_extent)
+                extent_key = (
+                    transformed_extent.xMinimum(),
+                    transformed_extent.yMinimum(),
+                    transformed_extent.xMaximum(),
+                    transformed_extent.yMaximum()
+                )
 
-            polygon_geom = QgsGeometry.fromRect(transformed_extent)
+                for existing in unique_extents:
+                    if transformed_extent == existing:
+                        extent_sources[extent_key].append(layout_name)
+                        break
+                else:
+                    unique_extents.append(transformed_extent)
+                    extent_sources[extent_key] = [layout_name]
 
-            layer = QgsVectorLayer(
-                "Polygon?crs=EPSG:2180",
-                f"Zasięg - {layout_name}",
-                "memory"
-            )
+                    polygon_geom = QgsGeometry.fromRect(transformed_extent)
 
-            provider = layer.dataProvider()
-            provider.addAttributes([QgsField("nazwa", QVariant.String)])
-            layer.updateFields()
+                    layer = QgsVectorLayer(
+                        "Polygon?crs=EPSG:2180",
+                        f"Zasięg - {layout_name}",
+                        "memory"
+                    )
 
-            feature = QgsFeature(layer.fields())
-            feature.setGeometry(polygon_geom)
-            feature.setAttribute("nazwa", layout_name)
-            provider.addFeature(feature)
+                    provider = layer.dataProvider()
+                    provider.addAttributes([QgsField("nazwa", QVariant.String)])
+                    layer.updateFields()
 
-            QgsProject.instance().addMapLayer(layer)
+                    feature = QgsFeature(layer.fields())
+                    feature.setGeometry(polygon_geom)
+                    feature.setAttribute("nazwa", layout_name)
+                    provider.addFeature(feature)
 
-            created_layers += 1
-            self.tbConsole.append(f"Dodano warstwę: Zasięg - {layout_name}")
+                    QgsProject.instance().addMapLayer(layer)
+
+                    created_layers += 1
+                    self.report(f"Dodano warstwę: Zasięg - {layout_name}")
 
             self.progressBar.setValue(idx)
 
+        shared = {k: v for k, v in extent_sources.items() if len(v) > 1}
+        if shared:
+            self.report("Układy współdzielące ten sam zasięg:")
+            for layouts_list in shared.values():
+                self.report("  " + ", ".join(layouts_list))
+
         if created_layers == 0:
-            self.tbConsole.append("Nie dodano żadnych nowych warstw — brak unikalnych zasięgów.")
+            self.report("Nie dodano żadnych nowych warstw — brak unikalnych zasięgów.")
         else:
-            self.tbConsole.append(f"Zakończono.")
+            self.report("Zakończono.")
 
     def pog_numeracja(self):
-        self.tbConsole.append("Rozpoczynam numerację obiektów POG...")
+        self.report("Rozpoczynam numerację obiektów POG...")
 
         layer = self.iface.activeLayer()
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy. Wybierz warstwę i spróbuj ponownie.")
+            self.report("Brak aktywnej warstwy. Wybierz warstwę i spróbuj ponownie.")
             if self.progressBar:
                 self.progressBar.setValue(0)
             return
@@ -1366,22 +1386,22 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         lokalny_field = "lokalnyId"
 
         if symbol_field not in layer.fields().names():
-            self.tbConsole.append(f"Brak wymaganej kolumny '{symbol_field}'.")
+            self.report(f"Brak wymaganej kolumny '{symbol_field}'.")
             return
         if oznaczenie_field not in layer.fields().names():
-            self.tbConsole.append(f"Brak pola '{oznaczenie_field}' do zapisu numeracji.")
+            self.report(f"Brak pola '{oznaczenie_field}' do zapisu numeracji.")
             return
         if lokalny_field not in layer.fields().names():
-            self.tbConsole.append(f"Brak pola '{lokalny_field}' do zapisu ID lokalnego.")
+            self.report(f"Brak pola '{lokalny_field}' do zapisu ID lokalnego.")
             return
 
         unique_symbols = list(layer.uniqueValues(layer.fields().lookupField(symbol_field)))
 
         if not unique_symbols:
-            self.tbConsole.append("Brak unikalnych wartości w kolumnie 'symbol'.")
+            self.report("Brak unikalnych wartości w kolumnie 'symbol'.")
             return
 
-        self.tbConsole.append(f"Znaleziono {len(unique_symbols)} unikalnych symboli: {unique_symbols}")
+        self.report(f"Znaleziono {len(unique_symbols)} unikalnych symboli: {unique_symbols}")
 
         self.progressBar.setMaximum(len(unique_symbols))
         self.progressBar.setValue(0)
@@ -1393,19 +1413,19 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         for idx, symbol in enumerate(unique_symbols, start=1):
 
-            self.tbConsole.append(f"Przetwarzanie symbolu: {symbol}")
+            self.report(f"Przetwarzanie symbolu: {symbol}")
 
             request = QgsFeatureRequest(QgsExpression(f'"{symbol_field}" = \'{symbol}\''))
             features = [f for f in layer.getFeatures(request)
                         if f.geometry() and not f.geometry().isEmpty()]
 
             if not features:
-                self.tbConsole.append("  Brak obiektów z tym symbolem – pomijam.")
+                self.report("  Brak obiektów z tym symbolem – pomijam.")
                 self.progressBar.setValue(idx)
                 continue
 
             if len(features) < 2:
-                self.tbConsole.append("  Za mało obiektów do wyznaczenia kolejności – pomijam.")
+                self.report("  Za mało obiektów do wyznaczenia kolejności – pomijam.")
                 self.progressBar.setValue(idx)
                 continue
 
@@ -1439,22 +1459,22 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             processed_symbols += 1
             total_numbered += len(visited)
 
-            self.tbConsole.append(
+            self.report(
                 f"  Znumerowano {len(visited)} obiektów dla symbolu {symbol}."
             )
 
             self.progressBar.setValue(idx)
 
         if processed_symbols == 0:
-            self.tbConsole.append("Nie wykonano numeracji – żadna grupa nie spełniała wymagań.")
+            self.report("Nie wykonano numeracji – żadna grupa nie spełniała wymagań.")
         else:
-            self.tbConsole.append(
+            self.report(
                 f"Zakończono numerację. Przetworzono {processed_symbols} symboli, "
                 f"znumerowano {total_numbered} obiektów."
             )
 
     def pog_korekta_profilu(self):
-        self.tbConsole.append("Rozpoczynam korektę profilu podstawowego...")
+        self.report("Rozpoczynam korektę profilu podstawowego...")
 
         symbol_to_profile = {
             "SW": "teren zabudowy mieszkaniowej wielorodzinnej,teren usług,teren komunikacji,teren zieleni urządzonej,teren ogrodów działkowych,teren infrastruktury technicznej",
@@ -1474,12 +1494,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         layer = self.iface.activeLayer()
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy.")
+            self.report("Brak aktywnej warstwy.")
             return
 
         fields = layer.fields()
         if "symbol" not in fields.names() or "profilPodstawowy" not in fields.names():
-            self.tbConsole.append("Brak wymaganych pól.")
+            self.report("Brak wymaganych pól.")
             return
 
         symbol_idx = fields.indexFromName("symbol")
@@ -1488,7 +1508,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         features = list(layer.getFeatures())
         total = len(features)
         if total == 0:
-            self.tbConsole.append("Warstwa nie zawiera obiektów.")
+            self.report("Warstwa nie zawiera obiektów.")
             return
 
         changes = {}
@@ -1506,29 +1526,29 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             layer.startEditing()
             layer.dataProvider().changeAttributeValues(changes)
             layer.commitChanges()
-            self.tbConsole.append(f"Zaktualizowano {len(changes)} obiektów.")
+            self.report(f"Zaktualizowano {len(changes)} obiektów.")
         else:
-            self.tbConsole.append("Nie dokonano żadnych zmian.")
+            self.report("Nie dokonano żadnych zmian.")
 
     def pog_korekta_spacje(self):
-        self.tbConsole.append("Rozpoczynam korektę spacji w kolumnach...")
+        self.report("Rozpoczynam korektę spacji w kolumnach...")
 
         layer = self.iface.activeLayer()
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy. Wybierz warstwę i spróbuj ponownie.")
+            self.report("Brak aktywnej warstwy. Wybierz warstwę i spróbuj ponownie.")
             self.progressBar.setValue(0)
             return
 
         columns_to_process = ["profilPodstawowy", "profilDodatkowy"]
         for col in columns_to_process:
             if col not in layer.fields().names():
-                self.tbConsole.append(f"Brak wymaganego pola '{col}'. Operacja przerwana.")
+                self.report(f"Brak wymaganego pola '{col}'. Operacja przerwana.")
                 return
 
         features = list(layer.getFeatures())
         total = len(features)
         if total == 0:
-            self.tbConsole.append("Warstwa nie zawiera obiektów – nic do korekty.")
+            self.report("Warstwa nie zawiera obiektów – nic do korekty.")
             self.progressBar.setValue(0)
             return
 
@@ -1558,18 +1578,18 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             layer.startEditing()
             layer.dataProvider().changeAttributeValues(changes)
             layer.commitChanges()
-            self.tbConsole.append(f"Zakończono korektę spacji. Zaktualizowano {len(changes)} obiektów.")
+            self.report(f"Zakończono korektę spacji. Zaktualizowano {len(changes)} obiektów.")
         else:
-            self.tbConsole.append("Nie dokonano żadnych zmian – wszystkie wartości były poprawne.")
+            self.report("Nie dokonano żadnych zmian – wszystkie wartości były poprawne.")
 
     def pog_zgodnosc(self):
-        self.tbConsole.append("Analiza zgodności POG z MPZP - start")
+        self.report("Analiza zgodności POG z MPZP - start")
         mpzp_layer = self.mpzp_layer.currentLayer()
         pog_layer = self.pog_layer.currentLayer()
         symbol_col = self.cb_mpzp_symbol_col.currentText()
 
         if not mpzp_layer or not pog_layer or not symbol_col:
-            self.tbConsole.append("Brak warstw lub kolumny symbolu MPZP")
+            self.report("Brak warstw lub kolumny symbolu MPZP")
             return
 
         if mpzp_layer.crs() != pog_layer.crs():
@@ -1599,7 +1619,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 feats.append(nf)
 
             if not feats:
-                self.tbConsole.append("Brak geometrii MPZP po transformacji")
+                self.report("Brak geometrii MPZP po transformacji")
                 return
 
             prov.addFeatures(feats)
@@ -1791,12 +1811,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         out_layer.updateExtents()
         QgsProject.instance().addMapLayer(out_layer)
 
-        self.tbConsole.append("Analiza zgodności POG z MPZP - koniec\n")
+        self.report("Analiza zgodności POG z MPZP - koniec\n")
 
     def reset_fid_values(self):
         layer = self.iface.activeLayer()
         if not layer or "fid" not in layer.fields().names():
-            self.tbConsole.append("Brak warstwy lub pola 'fid'.")
+            self.report("Brak warstwy lub pola 'fid'.")
             return
 
         idx = layer.fields().indexFromName("fid")
@@ -1809,14 +1829,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layer.dataProvider().changeAttributeValues(changes)
         layer.commitChanges()
 
-        self.tbConsole.append("Zresetowano kolumnę fid.")
+        self.report("Zresetowano kolumnę fid.")
 
     def numeracja_pol(self):
-        self.tbConsole.append("Rozpoczynam numerację wszystkich obiektów...")
+        self.report("Rozpoczynam numerację wszystkich obiektów...")
 
         layer = self.iface.activeLayer()
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy.")
+            self.report("Brak aktywnej warstwy.")
             return
 
         field_name = "numeracja"
@@ -1830,7 +1850,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         features = [f for f in layer.getFeatures() if f.geometry() and not f.geometry().isEmpty()]
         if not features:
-            self.tbConsole.append("Brak obiektów z geometrią.")
+            self.report("Brak obiektów z geometrią.")
             return
 
         centroids = {f.id(): f.geometry().centroid().asPoint() for f in features}
@@ -1849,19 +1869,19 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layer.dataProvider().changeAttributeValues(changes)
         layer.commitChanges()
 
-        self.tbConsole.append(f"Zakończono numerację {total} obiektów.")
+        self.report(f"Zakończono numerację {total} obiektów.")
 
     def numeracja_unikalna(self):
-        self.tbConsole.append("Rozpoczynam numerację grup obiektów...")
+        self.report("Rozpoczynam numerację grup obiektów...")
 
         layer = self.numeracja_layer.currentLayer()
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy.")
+            self.report("Brak aktywnej warstwy.")
             return
 
         group_field = self.cb_numeracja_unikalna.currentText()
         if not group_field or group_field not in layer.fields().names():
-            self.tbConsole.append("Nieprawidłowe pole grupujące.")
+            self.report("Nieprawidłowe pole grupujące.")
             return
 
         num_field = "numeracja"
@@ -1899,36 +1919,36 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.progressBar.setValue(i)
 
         layer.commitChanges()
-        self.tbConsole.append(f"Zakończono numerację. Zaktualizowano {total_numbered} obiektów.")
+        self.report(f"Zakończono numerację. Zaktualizowano {total_numbered} obiektów.")
 
     def import_external(self):
         ref_layer = self.layer_area.currentLayer()
         if not ref_layer or not ref_layer.isValid():
-            self.tbConsole.append("Nie wybrano warstwy referencyjnej.")
+            self.report("Nie wybrano warstwy referencyjnej.")
             return
 
         buffer_value = self.sbBufferValue.value()
 
         project_gpkg = self.project_path.filePath()
         if not project_gpkg:
-            self.tbConsole.append("Nie ustawiono ścieżki do projektu.")
+            self.report("Nie ustawiono ścieżki do projektu.")
             return
 
         src_path = self.import_external_path.filePath()
         if not src_path or not os.path.exists(src_path):
-            self.tbConsole.append("Nie wybrano poprawnej warstwy źródłowej.")
+            self.report("Nie wybrano poprawnej warstwy źródłowej.")
             return
 
         input_layer = QgsVectorLayer(src_path, "input", "ogr")
         if not input_layer.isValid():
-            self.tbConsole.append("Nie można wczytać warstwy wejściowej.")
+            self.report("Nie można wczytać warstwy wejściowej.")
             return
         input_crs = input_layer.crs()
 
         if not input_crs.isValid():
             chosen_crs = self.crs_import_filter_widget.crs()
             if not chosen_crs.isValid():
-                self.tbConsole.append(
+                self.report(
                     "Warstwa importowana ma nieznany CRS. "
                     "Wybierz CRS i uruchom ponownie."
                 )
@@ -1936,7 +1956,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             input_layer.setCrs(chosen_crs)
             input_crs = chosen_crs
-            self.tbConsole.append(f"Ustawiono CRS: {input_crs.authid()}")
+            self.report(f"Ustawiono CRS: {input_crs.authid()}")
 
         self.crs_import_filter_widget.setCrs(QgsCoordinateReferenceSystem())
 
@@ -1947,7 +1967,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 input_crs,
                 QgsProject.instance()
             )
-        self.tbConsole.append("Budowanie indeksu przestrzennego…")
+        self.report("Budowanie indeksu przestrzennego…")
         QtWidgets.QApplication.processEvents()
 
         index = QgsSpatialIndex()
@@ -1973,7 +1993,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             ref_geoms[f.id()] = geom
 
         if not ref_geoms:
-            self.tbConsole.append("Warstwa referencyjna nie zawiera geometrii.")
+            self.report("Warstwa referencyjna nie zawiera geometrii.")
             return
 
         custom_name = self.te_import_external_name.text().strip()
@@ -1986,7 +2006,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if self.cb_date_suffix.isChecked():
             layer_name += "_" + datetime.now().strftime("%Y_%m_%d")
 
-        self.tbConsole.append(f"Import: {layer_name}")
+        self.report(f"Import: {layer_name}")
         QtWidgets.QApplication.processEvents()
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = "GPKG"
@@ -2004,7 +2024,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )
 
         if writer.hasError() != QgsVectorFileWriter.NoError:
-            self.tbConsole.append(writer.errorMessage())
+            self.report(writer.errorMessage())
             return
 
         added = 0
@@ -2025,41 +2045,41 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     break
         del writer
         if added == 0:
-            self.tbConsole.append(f"Pominięto {layer_name} – brak przecięć.")
+            self.report(f"Pominięto {layer_name} – brak przecięć.")
             return
 
         self.progressBar.setValue(100)
-        self.tbConsole.append(f"Dodano {added} obiektów.")
-        self.tbConsole.append("Operacja zakończona.\n")
+        self.report(f"Dodano {added} obiektów.")
+        self.report("Operacja zakończona.\n")
         
     def import_external_filter(self):
         project_gpkg = self.project_path.filePath()
         if not project_gpkg:
-            self.tbConsole.append("Nie ustawiono ścieżki do projektu.")
+            self.report("Nie ustawiono ścieżki do projektu.")
             return
 
         src_path = self.import_external_filter_path.filePath()
         if not src_path or not os.path.exists(src_path):
-            self.tbConsole.append("Nie wybrano poprawnej warstwy źródłowej.")
+            self.report("Nie wybrano poprawnej warstwy źródłowej.")
             return
 
         field_name = self.cb_import_external_filter.currentText()
         if not field_name:
-            self.tbConsole.append("Nie wybrano kolumny do filtrowania.")
+            self.report("Nie wybrano kolumny do filtrowania.")
             return
 
         filter_value = self.le_filter.text().strip()
         if filter_value == "":
-            self.tbConsole.append("Nie podano wartości filtra.")
+            self.report("Nie podano wartości filtra.")
             return
 
         layer = QgsVectorLayer(src_path, "src", "ogr")
         if not layer.isValid():
-            self.tbConsole.append("Nie można wczytać warstwy źródłowej.")
+            self.report("Nie można wczytać warstwy źródłowej.")
             return
 
         if field_name not in layer.fields().names():
-            self.tbConsole.append(f"Kolumna '{field_name}' nie istnieje.")
+            self.report(f"Kolumna '{field_name}' nie istnieje.")
             return
 
         # output name
@@ -2070,7 +2090,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if self.cb_date__filter_suffix.isChecked():
             base_name += "_" + datetime.now().strftime("%Y_%m_%d")
 
-        self.tbConsole.append(
+        self.report(
             f"Importuję obiekty gdzie {field_name} = '{filter_value}' → {base_name}"
         )
         QtWidgets.QApplication.processEvents()
@@ -2087,7 +2107,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             count += 1
 
         if count == 0:
-            self.tbConsole.append("Brak obiektów spełniających warunek.")
+            self.report("Brak obiektów spełniających warunek.")
             return
 
         request = QgsFeatureRequest(expr)
@@ -2121,8 +2141,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         del writer
 
         self.progressBar.setValue(100)
-        self.tbConsole.append(f"Dodano {processed} obiektów.")
-        self.tbConsole.append("Import zakończony.\n")
+        self.report(f"Dodano {processed} obiektów.")
+        self.report("Import zakończony.\n")
 
     def report_intersections(
         self,
@@ -2156,18 +2176,18 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     for fld in fields:
                         v = f.attribute(fld)
                         vals.append("" if v is None else str(v))
-                    self.tbConsole.append(" | ".join(vals))
+                    self.report(" | ".join(vals))
                     QtWidgets.QApplication.processEvents()
 
         return count
 
     def anal_fop(self):
-        self.tbConsole.append("Analiza FOP - start")
+        self.report("Analiza FOP - start")
         QtWidgets.QApplication.processEvents()
 
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak funkcji w layer_area lub buforze.")
+            self.report("Brak funkcji w layer_area lub buforze.")
             return
 
         resource_base = self.resource_path.filePath()
@@ -2192,15 +2212,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         for rel_path, fields in layers.items():
             abs_path = os.path.join(resource_base, rel_path)
-            self.tbConsole.append(f"\nWarstwa: {rel_path}")
+            self.report(f"\nWarstwa: {rel_path}")
 
             if not os.path.exists(abs_path):
-                self.tbConsole.append("Plik nie istnieje.")
+                self.report("Plik nie istnieje.")
                 continue
 
             layer = QgsVectorLayer(abs_path, "src", "ogr")
             if not layer.isValid():
-                self.tbConsole.append("Nie można wczytać warstwy.")
+                self.report("Nie można wczytać warstwy.")
                 continue
 
             request = QgsFeatureRequest().setFilterRect(bbox)
@@ -2213,36 +2233,36 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             count = len(matches)
             if count == 0:
-                self.tbConsole.append("Brak przecięć.")
+                self.report("Brak przecięć.")
                 continue
 
-            self.tbConsole.append(f"Liczba przecięć: {count}")
+            self.report(f"Liczba przecięć: {count}")
 
             if not fields:
                 continue
 
             is_uzytki = rel_path.endswith("FOP_UzytkiEkologiczne.gpkg")
             if is_uzytki and count > 10:
-                self.tbConsole.append("    > 10 obiektów – pominięto listę nazw.")
+                self.report("    > 10 obiektów – pominięto listę nazw.")
                 continue
 
             for f in matches:
                 vals = [str(f[fld]) for fld in fields if f[fld] is not None]
                 if vals:
-                    self.tbConsole.append(" | ".join(vals))
+                    self.report(" | ".join(vals))
 
-        self.tbConsole.append("Analiza FOP - koniec\n")
+        self.report("Analiza FOP - koniec\n")
 
     def anal_fop_10km(self):
         import os
         from qgis.PyQt import QtWidgets
 
-        self.tbConsole.append("Analiza FOP 10 km - start")
+        self.report("Analiza FOP 10 km - start")
         QtWidgets.QApplication.processEvents()
 
         area_layer = self.layer_area_2180()
         if not area_layer or area_layer.featureCount() == 0:
-            self.tbConsole.append("Brak warstwy obszaru odniesienia.")
+            self.report("Brak warstwy obszaru odniesienia.")
             return
 
         area_geom = None
@@ -2252,7 +2272,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 area_geom = g if area_geom is None else area_geom.combine(g)
 
         if not area_geom:
-            self.tbConsole.append("Nie udało się zbudować geometrii obszaru.")
+            self.report("Nie udało się zbudować geometrii obszaru.")
             return
 
         buffer_geom = area_geom.buffer(10_000, 8)
@@ -2266,7 +2286,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         resource_base = self.resource_path.filePath()
         if not resource_base:
-            self.tbConsole.append("Brak ustawionej ścieżki do zasobów.")
+            self.report("Brak ustawionej ścieżki do zasobów.")
             return
 
         layers = {
@@ -2325,11 +2345,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 continue
 
             if fields is None:
-                self.tbConsole.append(f"{prefix}: {len(matches)}")
+                self.report(f"{prefix}: {len(matches)}")
                 continue
 
             if "UzytkiEkologiczne" in layer_name and len(matches) > 10:
-                self.tbConsole.append(f"Użytki ekologiczne: {len(matches)}")
+                self.report(f"Użytki ekologiczne: {len(matches)}")
                 continue
 
             for f in matches:
@@ -2367,19 +2387,19 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
                     parts.append(f"- {dist_txt} km na {azimuth_label(az)}")
 
-                self.tbConsole.append(" ".join(parts))
+                self.report(" ".join(parts))
 
-        self.tbConsole.append("Analiza FOP 10 km - koniec\n")
+        self.report("Analiza FOP 10 km - koniec\n")
 
     def anal_adm(self):
-        self.tbConsole.append("Analiza ADMINISTRACYJNE - start")
+        self.report("Analiza ADMINISTRACYJNE - start")
         QtWidgets.QApplication.processEvents()
 
         filter_geom = self.build_filter_geometry()
         base = self.resource_path.filePath()
 
         if not filter_geom:
-            self.tbConsole.append("Brak layer_area.")
+            self.report("Brak layer_area.")
             return
 
         layers = {
@@ -2401,32 +2421,32 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             name = os.path.basename(path)
 
             if fields is None:
-                self.tbConsole.append(
+                self.report(
                     f"{name}: {'istnieje' if os.path.exists(path) else 'NIE istnieje'}."
                 )
                 self.progressBar.setValue(int(i / total * 100))
                 continue
 
             if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: brak pliku.")
+                self.report(f"{name}: brak pliku.")
                 continue
 
             layer = QgsVectorLayer(path, name, "ogr")
-            self.tbConsole.append(f"{name}:")
+            self.report(f"{name}:")
             count = self.report_intersections(layer, filter_geom, fields)
-            self.tbConsole.append(f"Liczba: {count}\n")
+            self.report(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
 
-        self.tbConsole.append("Analiza ADMINISTRACYJNE zakończona.\n")
+        self.report("Analiza ADMINISTRACYJNE zakończona.\n")
 
     def anal_pig(self):
-        self.tbConsole.append("Analiza PIG - start")
+        self.report("Analiza PIG - start")
         QtWidgets.QApplication.processEvents()
 
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak funkcji w layer_area.")
+            self.report("Brak funkcji w layer_area.")
             return
 
         base = self.resource_path.filePath()
@@ -2442,25 +2462,25 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             name = os.path.basename(path)
 
             if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: brak pliku.")
+                self.report(f"{name}: brak pliku.")
                 continue
 
             layer = QgsVectorLayer(path, name, "ogr")
-            self.tbConsole.append(f"{name}:")
+            self.report(f"{name}:")
             count = self.report_intersections(layer, filter_geom, fields)
-            self.tbConsole.append(f"Liczba: {count}\n")
+            self.report(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
 
-        self.tbConsole.append("Analiza PIG zakończona.\n")
+        self.report("Analiza PIG zakończona.\n")
 
     def anal_wody(self):
-        self.tbConsole.append("Analiza WODY - start")
+        self.report("Analiza WODY - start")
         QtWidgets.QApplication.processEvents()
 
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak funkcji w layer_area.")
+            self.report("Brak funkcji w layer_area.")
             return
 
         base = self.resource_path.filePath()
@@ -2481,25 +2501,25 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             name = os.path.basename(path)
 
             if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: brak pliku.")
+                self.report(f"{name}: brak pliku.")
                 continue
 
             layer = QgsVectorLayer(path, name, "ogr")
-            self.tbConsole.append(f"{name}:")
+            self.report(f"{name}:")
             count = self.report_intersections(layer, filter_geom, fields)
-            self.tbConsole.append(f"Liczba: {count}\n")
+            self.report(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
 
-        self.tbConsole.append("Analiza WODY zakończona.\n")
+        self.report("Analiza WODY zakończona.\n")
 
     def anal_powodz(self):
-        self.tbConsole.append("Analiza POWODZ - start")
+        self.report("Analiza POWODZ - start")
         QtWidgets.QApplication.processEvents()
 
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak funkcji w layer_area.")
+            self.report("Brak funkcji w layer_area.")
             return
 
         base = self.resource_path.filePath()
@@ -2519,25 +2539,25 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             name = os.path.basename(path)
 
             if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: brak pliku.")
+                self.report(f"{name}: brak pliku.")
                 continue
 
             layer = QgsVectorLayer(path, name, "ogr")
-            self.tbConsole.append(f"{name}:")
+            self.report(f"{name}:")
             count = self.report_intersections(layer, filter_geom, fields)
-            self.tbConsole.append(f"Liczba: {count}\n")
+            self.report(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
 
-        self.tbConsole.append("Analiza POWODZ zakończona.\n")
+        self.report("Analiza POWODZ zakończona.\n")
 
     def anal_inne(self):
-        self.tbConsole.append("Analiza INNE - start")
+        self.report("Analiza INNE - start")
         QtWidgets.QApplication.processEvents()
 
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak funkcji w layer_area lub buforze.")
+            self.report("Brak funkcji w layer_area lub buforze.")
             return
 
         resource_base = self.resource_path.filePath()
@@ -2558,15 +2578,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         for rel_path, fields in layers.items():
             abs_path = os.path.join(resource_base, rel_path)
-            self.tbConsole.append(f"\nWarstwa: {rel_path}")
+            self.report(f"\nWarstwa: {rel_path}")
 
             if not os.path.exists(abs_path):
-                self.tbConsole.append("Plik nie istnieje.")
+                self.report("Plik nie istnieje.")
                 continue
 
             layer = QgsVectorLayer(abs_path, "src", "ogr")
             if not layer.isValid():
-                self.tbConsole.append("Nie można wczytać warstwy.")
+                self.report("Nie można wczytać warstwy.")
                 continue
 
             field_names = set(layer.fields().names())
@@ -2600,27 +2620,27 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 if is_roslinnosc:
                     unique_rows.add(tuple(values))
                 else:
-                    self.tbConsole.append(" | ".join(values))
+                    self.report(" | ".join(values))
 
             if count == 0:
-                self.tbConsole.append("Brak przecięć.")
+                self.report("Brak przecięć.")
                 continue
 
-            self.tbConsole.append(f"Liczba przecięć: {count}")
+            self.report(f"Liczba przecięć: {count}")
 
             if is_roslinnosc and unique_rows:
                 for row in sorted(unique_rows):
-                    self.tbConsole.append(" | ".join(row))
+                    self.report(" | ".join(row))
 
-        self.tbConsole.append("Analiza INNE zakończona.\n")
+        self.report("Analiza INNE zakończona.\n")
 
     def anal_oze(self):
-        self.tbConsole.append("Analiza OZE - start")
+        self.report("Analiza OZE - start")
         QtWidgets.QApplication.processEvents()
 
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak funkcji w layer_area.")
+            self.report("Brak funkcji w layer_area.")
             return
 
         base = self.resource_path.filePath()
@@ -2636,25 +2656,25 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             name = os.path.basename(path)
 
             if not os.path.exists(path):
-                self.tbConsole.append(f"{name}: brak pliku.")
+                self.report(f"{name}: brak pliku.")
                 continue
 
             layer = QgsVectorLayer(path, name, "ogr")
-            self.tbConsole.append(f"{name}:")
+            self.report(f"{name}:")
             count = self.report_intersections(layer, filter_geom, fields)
-            self.tbConsole.append(f"Liczba: {count}\n")
+            self.report(f"Liczba: {count}\n")
 
             self.progressBar.setValue(int(i / total * 100))
 
-        self.tbConsole.append("Analiza OZE zakończona.\n")
+        self.report("Analiza OZE zakończona.\n")
 
     def anal_lasy(self):
-        self.tbConsole.append("Analiza LASY - start")
+        self.report("Analiza LASY - start")
         QtWidgets.QApplication.processEvents()
 
         filter_geom = self.build_filter_geometry()
         if not filter_geom:
-            self.tbConsole.append("Brak funkcji w layer_area lub buforze.")
+            self.report("Brak funkcji w layer_area lub buforze.")
             return
 
         resource_base = self.resource_path.filePath()
@@ -2664,12 +2684,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.progressBar.setValue(0)
 
         if not os.path.exists(abs_path):
-            self.tbConsole.append("Plik nie istnieje.")
+            self.report("Plik nie istnieje.")
             return
 
         layer = QgsVectorLayer(abs_path, "src", "ogr")
         if not layer.isValid():
-            self.tbConsole.append("Nie można wczytać warstwy.")
+            self.report("Nie można wczytać warstwy.")
             return
 
         bbox = filter_geom.boundingBox()
@@ -2681,7 +2701,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         missing_fields = [f for f in required_fields if f not in field_names]
         if missing_fields:
-            self.tbConsole.append(
+            self.report(
                 "Brak kolumn: " + ", ".join(missing_fields)
             )
 
@@ -2705,7 +2725,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 matches.append((f, inter))
 
         if not matches:
-            self.tbConsole.append("Brak przecięć.")
+            self.report("Brak przecięć.")
             return
 
         total_area = 0.0
@@ -2713,14 +2733,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             total_area += g.area()
 
         analysis_area = total_area / 10000.0
-        self.tbConsole.append(f"Powierzchnia wszystkich wydzieleń [ha]: {analysis_area:.2f}")
+        self.report(f"Powierzchnia wszystkich wydzieleń [ha]: {analysis_area:.2f}")
 
         QtWidgets.QApplication.processEvents()
         self.progressBar.setValue(25)
 
         def dissolve_by_field(field_name: str):
             if field_name not in field_names:
-                self.tbConsole.append(f"Brak kolumny: {field_name}")
+                self.report(f"Brak kolumny: {field_name}")
                 return
 
             groups: dict[str, float] = {}
@@ -2736,15 +2756,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 groups[key] += g.area()
 
             if not groups:
-                self.tbConsole.append(f"Brak danych w kolumnie: {field_name}")
+                self.report(f"Brak danych w kolumnie: {field_name}")
                 return
 
-            self.tbConsole.append(f"\nAnaliza: {field_name}")
+            self.report(f"\nAnaliza: {field_name}")
 
             for key, area_m2 in sorted(groups.items(), key=lambda x: -x[1]):
                 area_ha = area_m2 / 10000.0
                 pct = (area_ha / analysis_area * 100.0) if analysis_area > 0 else 0.0
-                self.tbConsole.append(
+                self.report(
                     f"{key}: {area_ha:.2f} ha ({pct:.2f} %)"
                 )
                 QtWidgets.QApplication.processEvents()
@@ -2758,7 +2778,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         dissolve_by_field("prot_categ")
         self.progressBar.setValue(100)
 
-        self.tbConsole.append("Analiza LASY zakończona.\n")
+        self.report("Analiza LASY zakończona.\n")
         QtWidgets.QApplication.processEvents()
 
     def list_project_gpkg_layers(self) -> list[str]:
@@ -2804,13 +2824,13 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         table.setColumnWidth(0, width + 10)
         table.horizontalHeader().setStretchLastSection(True)
 
-        self.tbConsole.append("Tabela zaktualizowana.")
+        self.report("Tabela zaktualizowana.")
 
     def delete_selected_layers(self):
         table = self.table_gpkg
         rows_to_delete = [r for r in range(table.rowCount()) if table.item(r, 0).checkState() == Qt.Checked]
         if not rows_to_delete:
-            self.tbConsole.append("Brak wybranych warstw do usunięcia.")
+            self.report("Brak wybranych warstw do usunięcia.")
             return
 
         from PyQt5.QtWidgets import QMessageBox
@@ -2821,10 +2841,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             QMessageBox.Yes | QMessageBox.No
         )
         if confirm != QMessageBox.Yes:
-            self.tbConsole.append("Operacja zabortowana przez użytkownika.")
+            self.report("Operacja zabortowana przez użytkownika.")
             return
 
-        self.tbConsole.append(f"Usuwanie {len(rows_to_delete)} wybranych warstw...")
+        self.report(f"Usuwanie {len(rows_to_delete)} wybranych warstw...")
         layers_to_delete = [table.item(r, 1).text() for r in rows_to_delete]
         try:
             conn = sqlite3.connect(self.project_path.filePath())
@@ -2833,26 +2853,26 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 cursor.execute(f"DROP TABLE IF EXISTS '{layer}'")
                 cursor.execute(f"DELETE FROM gpkg_contents WHERE table_name='{layer}'")
                 cursor.execute(f"DELETE FROM gpkg_geometry_columns WHERE table_name='{layer}'")
-                self.tbConsole.append(f"Usunięto warstwę: {layer}")
+                self.report(f"Usunięto warstwę: {layer}")
             conn.commit()
             conn.close()
             self.load_layers()
-            self.tbConsole.append("Usuwanie zakończone, tabela zaktualizowana.")
+            self.report("Usuwanie zakończone, tabela zaktualizowana.")
         except Exception as e:
-            self.tbConsole.append(f"Błąd usuwania warstw: {e}")
+            self.report(f"Błąd usuwania warstw: {e}")
 
     def rename_selected_layer(self):
         table = self.table_gpkg
         rows_checked = [r for r in range(table.rowCount()) if table.item(r, 0).checkState() == Qt.Checked]
         if len(rows_checked) != 1:
-            self.tbConsole.append("Zaznacz tylko jedną warstwę do zmiany nazwy.")
+            self.report("Zaznacz tylko jedną warstwę do zmiany nazwy.")
             return
 
         row = rows_checked[0]
         old_name = table.item(row, 1).text()
         new_name, ok = QInputDialog.getText(self, "Rename Layer", "New name:", text=old_name)
         if not ok or not new_name:
-            self.tbConsole.append("Zmiana nazwy anulowana.")
+            self.report("Zmiana nazwy anulowana.")
             return
 
         try:
@@ -2864,27 +2884,27 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             conn.commit()
             conn.close()
             self.load_layers()
-            self.tbConsole.append(f"Nazwę warstwy '{old_name}' zmieniono na '{new_name}' i odświeżono tabelę.")
+            self.report(f"Nazwę warstwy '{old_name}' zmieniono na '{new_name}' i odświeżono tabelę.")
         except Exception as e:
-            self.tbConsole.append(f"Błąd zmiany nazwy: {e}")
+            self.report(f"Błąd zmiany nazwy: {e}")
 
     def vacuum_gpkg(self):
         try:
             conn = sqlite3.connect(self.project_path.filePath())
             conn.execute("VACUUM")
             conn.close()
-            self.tbConsole.append("Geopaczka odkurzona.")
+            self.report("Geopaczka odkurzona.")
         except Exception as e:
-            self.tbConsole.append(f"Błąd odkurzania geopaczki: {e}")
+            self.report(f"Błąd odkurzania geopaczki: {e}")
 
     def wind_area_2180(self):
         layer = self.wind_area.currentLayer()
         if layer is None:
-            self.tbConsole.append("Nie wybrano warstwy z elektrowniami.")
+            self.report("Nie wybrano warstwy z elektrowniami.")
             return None
 
         if layer.featureCount() == 0:
-            self.tbConsole.append("Wybrana warstwa jest pusta.")
+            self.report("Wybrana warstwa jest pusta.")
             return None
 
         if layer.crs().authid() == "EPSG:2180":
@@ -2916,7 +2936,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             feats.append(nf)
 
         if not feats:
-            self.tbConsole.append("Nieudana transformacja warstwy z elektrowniami.")
+            self.report("Nieudana transformacja warstwy z elektrowniami.")
             return None
 
         mem_dp.addFeatures(feats)
@@ -2940,7 +2960,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     def get_matching_teryt_codes_wind(self) -> set[str]:
         buffer_geom = self.wind_area_buffer_5000()
         if not buffer_geom:
-            self.tbConsole.append("Brak geometrii bufora 5000 m.")
+            self.report("Brak geometrii bufora 5000 m.")
             return set()
 
         powiat_path = os.path.join(
@@ -2950,7 +2970,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         layer = QgsVectorLayer(powiat_path, "powiat", "ogr")
         if not layer.isValid():
-            self.tbConsole.append("Nie można wczytać POWIAT_TERYT.")
+            self.report("Nie można wczytać POWIAT_TERYT.")
             return set()
 
         bbox = buffer_geom.boundingBox()
@@ -3002,7 +3022,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         src = os.path.join(self.resource_path.filePath(), "DANE_BDOT", gpkg_name)
         layer = QgsVectorLayer(src, "src", "ogr")
         if not layer.isValid():
-            self.tbConsole.append(f"Błąd wczytania {gpkg_name}")
+            self.report(f"Błąd wczytania {gpkg_name}")
             return []
 
         req = QgsFeatureRequest()
@@ -3018,13 +3038,13 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             if g and engine.intersects(g.constGet()):
                 feats.append(f)
 
-        self.tbConsole.append(f"{gpkg_name}: {len(feats)} obiektów po filtrach.")
+        self.report(f"{gpkg_name}: {len(feats)} obiektów po filtrach.")
         return feats
 
     def anal_wind_pobliska(self):
         layer = self.wind_area_2180()
         if not layer:
-            self.tbConsole.append("Brak wybranej warstwy z elektrowniami wiatrowymi.")
+            self.report("Brak wybranej warstwy z elektrowniami wiatrowymi.")
             return
 
         buffer_dist = self.sbWindHeight.value() * 10
@@ -3064,14 +3084,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 names.add(str(f["JPT_NAZWA_"]))
 
         for n in sorted(names):
-            self.tbConsole.append(f"Gmina pobliska: {n}")
+            self.report(f"Gmina pobliska: {n}")
 
     def anal_wind_build_700(self):
         feats = self.anal_wind_build_base("OT_BUBD_A.gpkg")
         feats = [f for f in feats if f["KODKST"] == "110"]
 
         if not feats:
-            self.tbConsole.append("Brak budynków (KODKST=110).")
+            self.report("Brak budynków (KODKST=110).")
             return
 
         geom = None
@@ -3085,14 +3105,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if not geom:
             return
         self.add_buffer_layer(geom, "Bufor_budynki_mieszkalne_700m")
-        self.tbConsole.append(f"Dodano warstwę z buforem od budynków mieszkalnych.")
+        self.report(f"Dodano warstwę z buforem od budynków mieszkalnych.")
 
     def anal_wind_build_700_rad(self):
         feats = self.anal_wind_build_base("OT_BUBD_A.gpkg")
         feats = [f for f in feats if f["KODKST"] == "110"]
 
         if not feats:
-            self.tbConsole.append("Brak budynków (KODKST=110).")
+            self.report("Brak budynków (KODKST=110).")
             return
 
         buffer_dist = 700 + self.sbWindRadius.value()
@@ -3108,7 +3128,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if not geom:
             return
         self.add_buffer_layer(geom, "Bufor_budynki_mieszkalne_700m_rotor")
-        self.tbConsole.append(f"Dodano warstwę z buforem od budynków mieszkalnych + długość rotora.")
+        self.report(f"Dodano warstwę z buforem od budynków mieszkalnych + długość rotora.")
 
     def anal_wind_elect(self):
         allowed = {
@@ -3120,7 +3140,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         feats = [f for f in feats if f["RODZAJ"] in allowed]
 
         if not feats:
-            self.tbConsole.append("Brak linii elektroenergetycznych wysokiego napięcia/najwyższych napięć w sąsiedztwie (5000 m).")
+            self.report("Brak linii elektroenergetycznych wysokiego napięcia/najwyższych napięć w sąsiedztwie (5000 m).")
             return
 
         buffer_rad = 3 * self.sbWindRadius.value()
@@ -3147,19 +3167,16 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 geom_rad,
                 f"Bufor_linie_elektroenergetyczne_{buffer_rad}m"
             )
-            self.tbConsole.append(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_rad} m.")
+            self.report(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_rad} m.")
 
         if geom_h:
             self.add_buffer_layer(
                 geom_h,
                 f"Bufor_linie_elektroenergetyczne_{buffer_h}m"
             )
-            self.tbConsole.append(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_h} m.")
+            self.report(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_h} m.")
 
     def anal_pog_building_core(self, use_flood: bool):
-
-        def report(msg):
-            self.tbConsole.append(msg)
 
         if use_flood:
             report("Rozpoczynam obliczanie wskaźników dla działek z budynkami zagrożonymi powodzią - wybór warstw")
@@ -3498,7 +3515,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             model.appendRow(db_item)
 
         self.tv_pg_load.setModel(model)
-        self.tbConsole.append("Przeładowano strukturę bazy danych")
+        self.report("Przeładowano strukturę bazy danych")
 
     def pg_refresh(self, host='localhost', port='5432'):
         project = QgsProject.instance()
@@ -3545,7 +3562,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             new_layer = QgsVectorLayer(new_uri.uri(), old_layer.name(), 'postgres')
             if not new_layer.isValid():
-                self.tbConsole.append(f"Failed to reload layer: {old_layer.name()}")
+                self.report(f"Failed to reload layer: {old_layer.name()}")
                 continue
 
             new_layer.setRenderer(old_layer.renderer().clone())
@@ -3574,12 +3591,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 project.removeMapLayer(old_layer.id())
                 project.addMapLayer(new_layer)
 
-            self.tbConsole.append(f"Odświeżono źródło warstwy: {new_layer.name()}")
+            self.report(f"Odświeżono źródło warstwy: {new_layer.name()}")
 
     def pg_import(self):
         idx = self.tv_pg_import.currentIndex()
         if not idx.isValid():
-            self.tbConsole.append("Nie wybrano pliku.")
+            self.report("Nie wybrano pliku.")
             return
 
         path = self.fs_model.filePath(idx)
@@ -3588,7 +3605,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             base = os.path.splitext(path)[0]
             shp = base + ".shp"
             if not os.path.exists(shp):
-                self.tbConsole.append("Wybrany plik nie jest warstwą SHP.")
+                self.report("Wybrany plik nie jest warstwą SHP.")
                 return
             path = shp
 
@@ -3598,12 +3615,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             db_name, schema_name, fname = rel.split(os.sep)
             raw_table = os.path.splitext(fname)[0]
         except Exception:
-            self.tbConsole.append("Błędna struktura katalogów.")
+            self.report("Błędna struktura katalogów.")
             return
 
         table_name = re.sub(r"[^a-zA-Z0-9_]", "_", raw_table).lower()[:60]
         if table_name != raw_table:
-            self.tbConsole.append(f"Zmieniono nazwę tabeli: {raw_table} → {table_name}")
+            self.report(f"Zmieniono nazwę tabeli: {raw_table} → {table_name}")
 
         user = self.le_pg_username.text()
         password = self.le_pg_password.text()
@@ -3622,15 +3639,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
             if cur.fetchone():
-                self.tbConsole.append(f"Baza istnieje: {db_name}")
+                self.report(f"Baza istnieje: {db_name}")
             else:
                 cur.execute(f'CREATE DATABASE "{db_name}"')
-                self.tbConsole.append(f"Utworzono bazę: {db_name}")
+                self.report(f"Utworzono bazę: {db_name}")
 
             cur.close()
             conn.close()
         except Exception as e:
-            self.tbConsole.append(str(e))
+            self.report(str(e))
             return
 
         try:
@@ -3645,17 +3662,17 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             cur = conn.cursor()
 
             cur.execute("CREATE EXTENSION IF NOT EXISTS postgis")
-            self.tbConsole.append("PostGIS włączony")
+            self.report("PostGIS włączony")
 
             cur.execute(
                 "SELECT 1 FROM information_schema.schemata WHERE schema_name = %s",
                 (schema_name,)
             )
             if cur.fetchone():
-                self.tbConsole.append(f"Schemat istnieje: {schema_name}")
+                self.report(f"Schemat istnieje: {schema_name}")
             else:
                 cur.execute(f'CREATE SCHEMA "{schema_name}"')
-                self.tbConsole.append(f"Utworzono schemat: {schema_name}")
+                self.report(f"Utworzono schemat: {schema_name}")
 
             cur.execute(
                 """
@@ -3665,7 +3682,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 (schema_name, table_name)
             )
             if cur.fetchone():
-                self.tbConsole.append(f"Pominięto import – tabela istnieje: {schema_name}.{table_name}")
+                self.report(f"Pominięto import – tabela istnieje: {schema_name}.{table_name}")
                 cur.close()
                 conn.close()
                 return
@@ -3673,12 +3690,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             cur.close()
             conn.close()
         except Exception as e:
-            self.tbConsole.append(str(e))
+            self.report(str(e))
             return
 
         layer = QgsVectorLayer(path, table_name, "ogr")
         if not layer.isValid():
-            self.tbConsole.append("Nie można wczytać warstwy SHP.")
+            self.report("Nie można wczytać warstwy SHP.")
             return
 
         uri = QgsDataSourceUri()
@@ -3695,15 +3712,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )
 
         if res[0] != QgsVectorLayerExporter.NoError:
-            self.tbConsole.append(res[1])
+            self.report(res[1])
             return
 
-        self.tbConsole.append(f"Zaimportowano: {db_name}.{schema_name}.{table_name}")
+        self.report(f"Zaimportowano: {db_name}.{schema_name}.{table_name}")
 
     def pg_load(self):
         idx = self.tv_pg_load.currentIndex()
         if not idx.isValid():
-            self.tbConsole.append("Nie wybrano warstwy.")
+            self.report("Nie wybrano warstwy.")
             return
 
         model = self.tv_pg_load.model()
@@ -3711,12 +3728,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         parent_schema = item.parent()
         if parent_schema is None:
-            self.tbConsole.append("Wybierz tabelę.")
+            self.report("Wybierz tabelę.")
             return
 
         parent_db = parent_schema.parent()
         if parent_db is None:
-            self.tbConsole.append("Wybierz tabelę.")
+            self.report("Wybierz tabelę.")
             return
 
         table_name = item.text()
@@ -3739,11 +3756,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             layer = QgsVectorLayer(uri.uri(), table_name, "postgres")
 
         if not layer.isValid():
-            self.tbConsole.append("Nie udało się wczytać warstwy z PostGIS.")
+            self.report("Nie udało się wczytać warstwy z PostGIS.")
             return
 
         QgsProject.instance().addMapLayer(layer)
-        self.tbConsole.append(f"Wczytano warstwę: {db_name}.{schema_name}.{table_name}")
+        self.report(f"Wczytano warstwę: {db_name}.{schema_name}.{table_name}")
 
         qml_dir = os.path.join(
             self.resource_path.filePath(),
@@ -3765,14 +3782,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if matched_qml and os.path.exists(matched_qml):
             layer.loadNamedStyle(matched_qml)
             layer.triggerRepaint()
-            self.tbConsole.append(f"Zastosowano styl: {os.path.basename(matched_qml)}")
+            self.report(f"Zastosowano styl: {os.path.basename(matched_qml)}")
         else:
-            self.tbConsole.append("Nie znaleziono pasującego pliku QML.")
+            self.report("Nie znaleziono pasującego pliku QML.")
 
     def pg_delete(self):
         idx = self.tv_pg_load.currentIndex()
         if not idx.isValid():
-            self.tbConsole.append("Nie wybrano warstwy.")
+            self.report("Nie wybrano warstwy.")
             return
 
         model = self.tv_pg_load.model()
@@ -3780,12 +3797,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         parent_schema = item.parent()
         if parent_schema is None:
-            self.tbConsole.append("Wybierz tabelę.")
+            self.report("Wybierz tabelę.")
             return
 
         parent_db = parent_schema.parent()
         if parent_db is None:
-            self.tbConsole.append("Wybierz tabelę.")
+            self.report("Wybierz tabelę.")
             return
 
         table_name = item.text()
@@ -3800,7 +3817,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )
 
         if confirm != QMessageBox.Yes:
-            self.tbConsole.append("Usuwanie anulowane.")
+            self.report("Usuwanie anulowane.")
             return
 
         user = self.le_pg_username.text()
@@ -3822,9 +3839,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             cur.execute(f'DROP TABLE IF EXISTS "{schema_name}"."{table_name}" CASCADE;')
             cur.close()
             conn.close()
-            self.tbConsole.append(f"Tabela {db_name}.{schema_name}.{table_name} została usunięta.")
+            self.report(f"Tabela {db_name}.{schema_name}.{table_name} została usunięta.")
         except Exception as e:
-            self.tbConsole.append(f"Błąd przy usuwaniu tabeli: {str(e)}")
+            self.report(f"Błąd przy usuwaniu tabeli: {str(e)}")
         self.load_pg_tree()
 
     def pg_split(self):
@@ -3832,20 +3849,20 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         layer = iface.activeLayer()
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy.")
+            self.report("Brak aktywnej warstwy.")
             return
 
         if not isinstance(layer, QgsVectorLayer):
-            self.tbConsole.append("Aktywna warstwa nie jest wektorowa.")
+            self.report("Aktywna warstwa nie jest wektorowa.")
             return
 
         if layer.dataProvider().name().lower() != "postgres":
-            self.tbConsole.append("Warstwa nie pochodzi z bazy Postgres.")
+            self.report("Warstwa nie pochodzi z bazy Postgres.")
             return
 
         field_name = "Layer"
         if field_name not in [f.name() for f in layer.fields()]:
-            self.tbConsole.append(f"Kolumna '{field_name}' nie istnieje w warstwie.")
+            self.report(f"Kolumna '{field_name}' nie istnieje w warstwie.")
             return
 
         base_layer_name = layer.name()
@@ -3876,10 +3893,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             cur.close()
             conn.close()
         except Exception as e:
-            self.tbConsole.append(f"Błąd przy pobieraniu unikalnych wartości: {str(e)}")
+            self.report(f"Błąd przy pobieraniu unikalnych wartości: {str(e)}")
             return
 
-        self.tbConsole.append(f"Rozpoczynam dzielenie warstwy '{base_layer_name}' na {len(unique_values)} podwarstw...")
+        self.report(f"Rozpoczynam dzielenie warstwy '{base_layer_name}' na {len(unique_values)} podwarstw...")
 
         tmp_qml = tempfile.NamedTemporaryFile(suffix=".qml", delete=False).name
         layer.saveNamedStyle(tmp_qml)
@@ -3898,29 +3915,29 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
                 QgsProject.instance().addMapLayer(split_layer, False)
                 group.addLayer(split_layer)
-                self.tbConsole.append(f"Utworzono warstwę: {filtered_layer_name}")
+                self.report(f"Utworzono warstwę: {filtered_layer_name}")
             else:
-                self.tbConsole.append(f"Nie udało się utworzyć warstwy dla: {filtered_layer_name}")
+                self.report(f"Nie udało się utworzyć warstwy dla: {filtered_layer_name}")
 
-        self.tbConsole.append(f"Zakończono dzielenie warstwy '{base_layer_name}'.")
+        self.report(f"Zakończono dzielenie warstwy '{base_layer_name}'.")
 
     def pg_pound_replace(self):
         layer = iface.activeLayer()
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy.")
+            self.report("Brak aktywnej warstwy.")
             return
 
         if not isinstance(layer, QgsVectorLayer):
-            self.tbConsole.append("Aktywna warstwa nie jest wektorowa.")
+            self.report("Aktywna warstwa nie jest wektorowa.")
             return
 
         if layer.dataProvider().name().lower() != "postgres":
-            self.tbConsole.append("Warstwa nie pochodzi z bazy Postgres.")
+            self.report("Warstwa nie pochodzi z bazy Postgres.")
             return
 
         field_name = "Text"
         if field_name not in [f.name() for f in layer.fields()]:
-            self.tbConsole.append(f"Kolumna '{field_name}' nie istnieje w warstwie.")
+            self.report(f"Kolumna '{field_name}' nie istnieje w warstwie.")
             return
 
         uri = QgsDataSourceUri(layer.source())
@@ -3951,9 +3968,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             affected = cur.rowcount
             cur.close()
             conn.close()
-            self.tbConsole.append(f"Zaktualizowano {affected} rekordów w kolumnie '{field_name}'.")
+            self.report(f"Zaktualizowano {affected} rekordów w kolumnie '{field_name}'.")
         except Exception as e:
-            self.tbConsole.append(f"Błąd przy aktualizacji kolumny '{field_name}': {str(e)}")
+            self.report(f"Błąd przy aktualizacji kolumny '{field_name}': {str(e)}")
 
     def update_style_filter(self, layer):
         if not layer:
@@ -3989,18 +4006,18 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     def apply_style_to_layer(self):
         layer = self.cb_style_layer.currentLayer()
         if layer is None:
-            self.tbConsole.append("Nie wybrano warstwy do wczytania stylu.")
+            self.report("Nie wybrano warstwy do wczytania stylu.")
             return
 
         indexes = self.tv_style.selectionModel().selectedIndexes()
         if not indexes:
-            self.tbConsole.append(f"Nie wybrano stylu do wczytania.")
+            self.report(f"Nie wybrano stylu do wczytania.")
             return
 
         index = indexes[0]
         path = self.style_model.filePath(index)
         if not path.lower().endswith(".qml"):
-            self.tbConsole.append(f"Wybrany plik nie jest stylem .qml: '{path}'.")
+            self.report(f"Wybrany plik nie jest stylem .qml: '{path}'.")
             return
 
         mgr = layer.styleManager()
@@ -4015,35 +4032,35 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layer.triggerRepaint()
 
         style_name = path.split("/")[-1] if "/" in path else path.split("\\")[-1]
-        self.tbConsole.append(f"Wczytano styl '{style_name}' dla warstwy -> '{layer.name()}'.")
+        self.report(f"Wczytano styl '{style_name}' dla warstwy -> '{layer.name()}'.")
 
     def apply_previous_style_to_layer(self):
         layer = self.cb_style_layer.currentLayer()
         if layer is None:
-            self.tbConsole.append("Nie wybrano warstwy do wczytania ostatnio zmienionego stylu.")
+            self.report("Nie wybrano warstwy do wczytania ostatnio zmienionego stylu.")
             return
 
         backup_name = self._previous_layer_styles.get(layer.id())
         if not backup_name:
-            self.tbConsole.append(f"Nie zapisano poprzedniego stylu dla warstwy '{layer.name()}'.")
+            self.report(f"Nie zapisano poprzedniego stylu dla warstwy '{layer.name()}'.")
             return
         mgr: QgsMapLayerStyleManager = layer.styleManager()
         if backup_name not in mgr.styles():
-            self.tbConsole.append(f"Nie znaleziono zapisanego poprzedniego stylu '{backup_name}' w warstwie '{layer.name()}'.")
+            self.report(f"Nie znaleziono zapisanego poprzedniego stylu '{backup_name}' w warstwie '{layer.name()}'.")
             return
 
         mgr.setCurrentStyle(backup_name)
         layer.triggerRepaint()
-        self.tbConsole.append(f"Wczytano ostatnio zmieniony styl dla warstwy '{layer.name()}'.")
+        self.report(f"Wczytano ostatnio zmieniony styl dla warstwy '{layer.name()}'.")
 
     def export_active_layer_style(self):
         layer = self.iface.activeLayer()
         if layer is None:
-            self.tbConsole.append("Nie wybrano aktywnej warstwy.")
+            self.report("Nie wybrano aktywnej warstwy.")
             return
 
         if not isinstance(layer, QgsVectorLayer):
-            self.tbConsole.append(f"Aktywna warstwa '{layer.name()}' nie jest warstwą wektorową.")
+            self.report(f"Aktywna warstwa '{layer.name()}' nie jest warstwą wektorową.")
             return
 
         g = layer.geometryType()
@@ -4054,12 +4071,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         elif g == QgsWkbTypes.PolygonGeometry:
             suffix = "_polygon.qml"
         else:
-            self.tbConsole.append(f"Nieobsługiwany typ geometrii dla warstwy '{layer.name()}'.")
+            self.report(f"Nieobsługiwany typ geometrii dla warstwy '{layer.name()}'.")
             return
 
         base_name = self.le_export_active_layer_style.text().strip()
         if not base_name:
-            self.tbConsole.append("Nie podano nazwy dla eksportu stylu.")
+            self.report("Nie podano nazwy dla eksportu stylu.")
             return
 
         file_name = f"{base_name}{suffix}"
@@ -4067,30 +4084,30 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         success, error_message = layer.saveNamedStyle(export_path)
         if success:
-            self.tbConsole.append(f"Styl warstwy '{layer.name()}' został wyeksportowany jako '{file_name}'.")
+            self.report(f"Styl warstwy '{layer.name()}' został wyeksportowany jako '{file_name}'.")
             self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
         else:
-            self.tbConsole.append(f"Błąd podczas eksportu stylu: {error_message}")
+            self.report(f"Błąd podczas eksportu stylu: {error_message}")
 
     def style_save_single(self):
         self.progressBar.reset()
         self.progressBar.setValue(0)
-        self.tbConsole.append("Rozpoczynam zapisywanie stylu aktywnej warstwy...")
+        self.report("Rozpoczynam zapisywanie stylu aktywnej warstwy...")
 
         layer = self.iface.activeLayer()
 
         if not layer:
-            self.tbConsole.append("Brak aktywnej warstwy. Operacja przerwana.")
+            self.report("Brak aktywnej warstwy. Operacja przerwana.")
             self.progressBar.setValue(0)
             return
 
         if layer.type() != QgsMapLayerType.VectorLayer:
-            self.tbConsole.append(f"Warstwa '{layer.name()}' nie jest warstwą wektorową.")
+            self.report(f"Warstwa '{layer.name()}' nie jest warstwą wektorową.")
             self.progressBar.setValue(0)
             return
 
         if not layer.source().lower().endswith(".gpkg"):
-            self.tbConsole.append(f"Warstwa '{layer.name()}' nie pochodzi z GeoPackage. Pomijam.")
+            self.report(f"Warstwa '{layer.name()}' nie pochodzi z GeoPackage. Pomijam.")
             self.progressBar.setValue(0)
             return
 
@@ -4107,12 +4124,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             layer.triggerRepaint()
             self.progressBar.setValue(100)
-            self.tbConsole.append(f"Zapisano styl warstwy '{layer_name}'.")
+            self.report(f"Zapisano styl warstwy '{layer_name}'.")
 
         except Exception as e:
-            self.tbConsole.append(f"Błąd podczas zapisywania stylu: {str(e)}")
+            self.report(f"Błąd podczas zapisywania stylu: {str(e)}")
             self.progressBar.setValue(0)
-
 
     def style_save_all(self):
         reply = QMessageBox.question(
@@ -4124,10 +4140,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )
 
         if reply != QMessageBox.Yes:
-            self.tbConsole.append("Operacja anulowana.")
+            self.report("Operacja anulowana.")
             return
 
-        self.tbConsole.append("Rozpoczynam zapisywanie stylów dla wszystkich warstw z GeoPackage...")
+        self.report("Rozpoczynam zapisywanie stylów dla wszystkich warstw z GeoPackage...")
         self.progressBar.reset()
         self.progressBar.setValue(0)
 
@@ -4140,10 +4156,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layer_count_total = len(vector_layers)
 
         if layer_count_total == 0:
-            self.tbConsole.append("Brak warstw wektorowych z GeoPackage w projekcie — nic do zapisania.")
+            self.report("Brak warstw wektorowych z GeoPackage w projekcie — nic do zapisania.")
             return
 
-        self.tbConsole.append(f"Liczba warstw do zapisania: {layer_count_total}")
+        self.report(f"Liczba warstw do zapisania: {layer_count_total}")
 
         self.progressBar.setMaximum(100)
         processed = 0
@@ -4166,15 +4182,38 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 progress = int((processed / layer_count_total) * 100)
                 self.progressBar.setValue(progress)
 
-                self.tbConsole.append(
+                self.report(
                     f"[{processed}/{layer_count_total}] Zapisano styl dla: {layer_name}"
                 )
 
             except Exception as e:
-                self.tbConsole.append(f"Błąd przy zapisywaniu stylu warstwy '{layer_name}': {str(e)}")
+                self.report(f"Błąd przy zapisywaniu stylu warstwy '{layer_name}': {str(e)}")
 
-        self.tbConsole.append("Zakończono zapisywanie stylów dla wszystkich warstw z GeoPackage.")
+        self.report("Zakończono zapisywanie stylów dla wszystkich warstw z GeoPackage.")
         self.progressBar.setValue(100)
 
+    def report_crs(self):
+        project = QgsProject.instance()
 
+        for layer in project.mapLayers().values():
+            crs = layer.crs()
+            
+            layer_name = layer.name()
+            authid = crs.authid() if crs.isValid() else "Brak CRS"
+            description = crs.description() if crs.isValid() else "Nieznany CRS"
+
+            self.report(f"Warstwa: {layer_name}")
+            self.report(f"  CRS ID: {authid}")
+            self.report(f"  CRS Opis: {description}")
+            self.report("-" * 15)        
+
+    def report_encoding(self):
+        project = QgsProject.instance()
+        for layer in project.mapLayers().values():
+            if isinstance(layer, QgsVectorLayer):
+                layer_name = layer.name()
+                encoding = layer.dataProvider().encoding()
+                self.report(f"Nazwa warstwy: {layer_name}")
+                self.report(f" Kodowanie: {encoding}")
+                self.report("-" * 15)        
 # xD

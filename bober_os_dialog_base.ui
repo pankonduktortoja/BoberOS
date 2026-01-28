@@ -1567,7 +1567,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>3</number>
         </property>
         <widget class="QWidget" name="tab_11">
          <attribute name="title">
@@ -2020,6 +2020,53 @@ p, li { white-space: pre-wrap; }
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Numeracja obiektów wg wartości unikalnych - działa jak funkcja wyżej, lecz numeracja rozpoczyna się od nowa w obrębie każdej wartości unikalnej.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+        <widget class="QWidget" name="tab_24">
+         <attribute name="title">
+          <string>Inne c.d.</string>
+         </attribute>
+         <widget class="QWidget" name="verticalLayoutWidget_18">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>701</width>
+            <height>471</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_20">
+           <item>
+            <widget class="QPushButton" name="pb_report_crs">
+             <property name="text">
+              <string>Wyświetl raport dla układów odniesienia dla wszystkich warstw w projekcie</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_report_encoding">
+             <property name="text">
+              <string>Wyświetl raport dla kodowania warstw dla wszystkich warstw wektorowych w projekcie</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_9">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser_18"/>
            </item>
           </layout>
          </widget>
