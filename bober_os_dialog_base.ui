@@ -251,6 +251,13 @@
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="pb_upgrade_plugin">
+            <property name="text">
+             <string>Zaktualizuj BoberOS</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="verticalSpacer">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
@@ -519,7 +526,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>4</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_4">
          <attribute name="title">
@@ -1316,7 +1323,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_21">
          <attribute name="title">
@@ -1567,7 +1574,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>3</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_11">
          <attribute name="title">
@@ -1618,18 +1625,32 @@ p, li { white-space: pre-wrap; }
             </spacer>
            </item>
            <item>
-            <widget class="QPushButton" name="pb_anal_pog_flood_buildings">
-             <property name="text">
-              <string>Oblicz wskaźniki dla działek zagrożonych powodzią</string>
+            <layout class="QGridLayout" name="gridLayout_3">
+             <property name="topMargin">
+              <number>0</number>
              </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pb_anal_pog_all_buildings">
-             <property name="text">
-              <string>Oblicz wskaźniki dla wszystkich działek</string>
-             </property>
-            </widget>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="pb_anal_pog_flood_buildings">
+               <property name="text">
+                <string>Oblicz wskaźniki dla działek zagrożonych powodzią</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="pb_anal_pog_all_buildings">
+               <property name="text">
+                <string>Oblicz wskaźniki dla wszystkich działek</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QCheckBox" name="cb_use_pog_strefa">
+               <property name="text">
+                <string>Uwzględnij przecięcia ze strefą planistyczną</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <spacer name="verticalSpacer_8">
@@ -2087,7 +2108,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_20">
          <attribute name="title">

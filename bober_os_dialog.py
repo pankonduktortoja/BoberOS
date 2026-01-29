@@ -23,21 +23,25 @@
 import os
 import time
 import re
-
+import shutil
+import sqlite3
+import processing
+import psycopg2
+import subprocess
+import tempfile
+import ctypes
+from ctypes import wintypes
 from qgis.core import *
 from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsReadWriteContext, QgsCoordinateTransformContext, QgsWkbTypes, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature, QgsVectorLayerExporter, QgsExpressionContext, QgsExpressionContextUtils, QgsRectangle, QgsMapRendererCustomPainterJob
 from qgis.PyQt import *
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import *
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap, QPainter, QColor, QImage
-from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog, QFileSystemModel
+from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog, QFileSystemModel, QFileDialog
 from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView
 from PyQt5.QtCore import Qt, QVariant, QDir, QSize
 from qgis.PyQt.QtXml import QDomDocument
-import sqlite3
-import processing
-import psycopg2
-import tempfile
+from pathlib import Path
 from qgis.gui import *
 from datetime import datetime
 from qgis.utils import iface
@@ -141,6 +145,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.mpzp_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.pog_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.numeracja_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        
+        
+        self.pb_upgrade_plugin.clicked.connect(self.upgrade_plugin)
         #LAYER AREA
         self.layer_area.setFilters(QgsMapLayerProxyModel.PolygonLayer)
         self.layer_area.setCurrentIndex(-1)
@@ -151,6 +158,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         saved_resource = self.load_setting("resource_path")
         if saved_resource:
             self.resource_path.setFilePath(saved_resource)
+
+        saved_resource = self.load_setting("resource_path")
+        if not saved_resource or not os.path.isdir(saved_resource):
+            QMessageBox.warning(
+                self.iface.mainWindow(),
+                "Uwaga! Brak ścieżki do zasobu danych",
+                "Wybierz ścieżkę do zasobu danych przed korzystaniem z wtyczki.")
+            
         #TREEVIEWS + MODELS
         self.fs_model = QFileSystemModel(self)
         self.fs_model.setRootPath(QDir.rootPath())
@@ -202,7 +217,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         saved_port = self.load_setting("pg_port")
         if saved_port:
             self.le_pg_port.setText(saved_port)
-
         
         self.pb_act_fop.clicked.connect(self.act_fop_layers)
         self.pb_act_pomniki.clicked.connect(self.act_pomniki_layers)
@@ -3178,10 +3192,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def anal_pog_building_core(self, use_flood: bool):
 
+        use_strefy = self.cb_use_pog_strefa.isChecked()
+
         if use_flood:
-            report("Rozpoczynam obliczanie wskaźników dla działek z budynkami zagrożonymi powodzią - wybór warstw")
+            self.report("Rozpoczynam obliczanie wskaźników dla działek z budynkami zagrożonymi powodzią - wybór warstw")
         else:
-            report("Rozpoczynam obliczanie wskaźników dla wszystkich działek z budynkami - wybór warstw")
+            self.report("Rozpoczynam obliczanie wskaźników dla wszystkich działek z budynkami - wybór warstw")
 
         feedback = QgsProcessingFeedback()
         project = QgsProject.instance()
@@ -3220,10 +3236,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         try:
             budynki = ensure_epsg2180(select_layer("Wybierz warstwę z budynkami (BDOT10k)"))
             dzialki = ensure_epsg2180(select_layer("Wybierz warstwę z działkami (GML)"))
-            powodz  = ensure_epsg2180(select_layer("Wybierz warstwę z zagrożeniem powodzią")) if use_flood else None
-            strefy  = ensure_epsg2180(select_layer("Wybierz warstwę ze strefami planistycznymi"))
+            powodz = ensure_epsg2180(select_layer("Wybierz warstwę z zagrożeniem powodzią")) if use_flood else None
+            strefy = ensure_epsg2180(select_layer("Wybierz warstwę ze strefami planistycznymi")) if use_strefy else None
         except RuntimeError:
-            report("Analiza przerwana na etapie wyboru warstw")
+            self.report("Analiza przerwana na etapie wyboru warstw")
             return
 
         if use_flood:
@@ -3287,15 +3303,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         idx_pb = split.fields().indexOf("powbud")
         idx_pc = split.fields().indexOf("powcalk")
-        idx_k  = split.fields().indexOf("LICZBAKONDYGNACJI")
+        idx_k = split.fields().indexOf("LICZBAKONDYGNACJI")
 
-        split_updates = {}
+        updates = {}
         for f in split.getFeatures():
             g = f.geometry()
             a = g.area() if g and not g.isEmpty() else 0.0
             k = f[idx_k] or 0
-            split_updates[f.id()] = {idx_pb: a, idx_pc: a * k}
-        split.dataProvider().changeAttributeValues(split_updates)
+            updates[f.id()] = {idx_pb: a, idx_pc: a * k}
+        split.dataProvider().changeAttributeValues(updates)
         split.commitChanges()
 
         agg = {}
@@ -3321,76 +3337,71 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             dzialki_kwal.dataProvider().addAttributes(needed)
         dzialki_kwal.updateFields()
 
-        dzialki_updates = {}
         idx_pb_sum = dzialki_kwal.fields().indexOf("powbud_sum")
         idx_pc_sum = dzialki_kwal.fields().indexOf("powcalk_sum")
-        idx_pd     = dzialki_kwal.fields().indexOf("powdzialki")
+        idx_pd = dzialki_kwal.fields().indexOf("powdzialki")
 
+        updates = {}
         for f in dzialki_kwal.getFeatures():
             pid = f["id_dzialki"]
             s = agg.get(pid, [0.0, 0.0])
             g = f.geometry()
-            dzialki_updates[f.id()] = {
+            updates[f.id()] = {
                 idx_pb_sum: s[0],
                 idx_pc_sum: s[1],
                 idx_pd: g.area() if g and not g.isEmpty() else 0.0
             }
-        dzialki_kwal.dataProvider().changeAttributeValues(dzialki_updates)
+        dzialki_kwal.dataProvider().changeAttributeValues(updates)
         dzialki_kwal.commitChanges()
 
-        dz_strefy = fix_geoms(processing.run(
-            "native:intersection",
-            {
-                "INPUT": split,
-                "OVERLAY": strefy,
-                "OVERLAY_FIELDS": ["symbol", "oznaczenie"],
-                "OVERLAY_PREFIX": "",
-                "OUTPUT": "memory:"
-            },
-            feedback=feedback
-        )["OUTPUT"])
-
-        dz_strefy.startEditing()
-        if dz_strefy.fields().indexOf("overlap") == -1:
-            dz_strefy.dataProvider().addAttributes([QgsField("overlap", 6, "double")])
-        dz_strefy.updateFields()
-
-        idx_ov = dz_strefy.fields().indexOf("overlap")
-        ov_updates = {}
-        for f in dz_strefy.getFeatures():
-            g = f.geometry()
-            ov_updates[f.id()] = {idx_ov: g.area() if g and not g.isEmpty() else 0.0}
-        dz_strefy.dataProvider().changeAttributeValues(ov_updates)
-        dz_strefy.commitChanges()
-
         best = {}
-        for f in dz_strefy.getFeatures():
-            pid = f["id_dzialki"]
-            area = f["overlap"] or 0.0
-            sym = f["symbol"] or ""
-            ozn = f["oznaczenie"] or ""
-            if pid not in best or area > best[pid][0]:
-                best[pid] = (area, sym, ozn)
+
+        if use_strefy:
+            dz_strefy = fix_geoms(processing.run(
+                "native:intersection",
+                {
+                    "INPUT": split,
+                    "OVERLAY": strefy,
+                    "OVERLAY_FIELDS": ["symbol", "oznaczenie"],
+                    "OVERLAY_PREFIX": "",
+                    "OUTPUT": "memory:"
+                },
+                feedback=feedback
+            )["OUTPUT"])
+
+            dz_strefy.startEditing()
+            if dz_strefy.fields().indexOf("overlap") == -1:
+                dz_strefy.dataProvider().addAttributes([QgsField("overlap", 6, "double")])
+            dz_strefy.updateFields()
+
+            idx_ov = dz_strefy.fields().indexOf("overlap")
+            updates = {}
+            for f in dz_strefy.getFeatures():
+                g = f.geometry()
+                updates[f.id()] = {idx_ov: g.area() if g and not g.isEmpty() else 0.0}
+            dz_strefy.dataProvider().changeAttributeValues(updates)
+            dz_strefy.commitChanges()
+
+            for f in dz_strefy.getFeatures():
+                pid = f["id_dzialki"]
+                area = f["overlap"] or 0.0
+                sym = f["symbol"] or ""
+                ozn = f["oznaczenie"] or ""
+                if pid not in best or area > best[pid][0]:
+                    best[pid] = (area, sym, ozn)
 
         dzialki_kwal.startEditing()
-        sym_updates = {}
         idx_sym = dzialki_kwal.fields().indexOf("symbol")
         idx_ozn = dzialki_kwal.fields().indexOf("oznaczenie")
 
+        updates = {}
         for f in dzialki_kwal.getFeatures():
             pid = f["id_dzialki"]
             if pid in best:
-                sym_updates[f.id()] = {
-                    idx_sym: best[pid][1],
-                    idx_ozn: best[pid][2]
-                }
+                updates[f.id()] = {idx_sym: best[pid][1], idx_ozn: best[pid][2]}
             else:
-                sym_updates[f.id()] = {
-                    idx_sym: "",
-                    idx_ozn: ""
-                }
-
-        dzialki_kwal.dataProvider().changeAttributeValues(sym_updates)
+                updates[f.id()] = {idx_sym: "", idx_ozn: ""}
+        dzialki_kwal.dataProvider().changeAttributeValues(updates)
         dzialki_kwal.commitChanges()
 
         final_layer = fix_geoms(processing.run(
@@ -3412,7 +3423,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     {"name": "maksUdzialPowierzchniZabudowy", "type": 6, "length": 0, "precision": 2,
                      "expression": 'CASE WHEN "powdzialki" > 0 THEN ceil(("powbud_sum" / "powdzialki") * 100) / 100 ELSE 0 END'},
                     {"name": "maksNadziemnaIntensywnoscZabudowy", "type": 6, "length": 0, "precision": 1,
-                    "expression": 'CASE WHEN "powdzialki" > 0 AND ceil(("powcalk_sum" / "powdzialki") * 100) / 100 > 0.1 THEN ceil(("powcalk_sum" / "powdzialki") * 100) / 100 ELSE 0.1 END'},
+                     "expression": 'CASE WHEN "powdzialki" > 0 AND ceil(("powcalk_sum" / "powdzialki") * 100) / 100 > 0.1 THEN ceil(("powcalk_sum" / "powdzialki") * 100) / 100 ELSE 0.1 END'},
                 ],
                 "OUTPUT": "memory:"
             },
@@ -3434,7 +3445,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )
         project.addMapLayer(final_layer)
 
-        report("Analiza zakończona")
+        self.report("Analiza zakończona")
 
     def anal_pog_all_buildings(self):
         self.anal_pog_building_core(use_flood=False)
@@ -4216,4 +4227,65 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.report(f"Nazwa warstwy: {layer_name}")
                 self.report(f" Kodowanie: {encoding}")
                 self.report("-" * 15)        
+
+    def upgrade_plugin(self, *args):
+        try:
+            resource_path = Path(self.resource_path.filePath())
+            source_folder = resource_path.parent / "WTYCZKI" / "bober_os"
+            if not source_folder.exists():
+                QMessageBox.critical(
+                    iface.mainWindow(),
+                    "Upgrade Error",
+                    f"Source folder not found:\n{str(source_folder)}",
+                    buttons=QMessageBox.Ok
+                )
+                return
+
+            target_plugin_dir = Path(__file__).resolve().parent
+
+            FO_COPY = 0x0002
+
+            class SHFILEOPSTRUCT(ctypes.Structure):
+                _fields_ = [
+                    ("hwnd", wintypes.HWND),
+                    ("wFunc", ctypes.c_uint),
+                    ("pFrom", wintypes.LPCWSTR),
+                    ("pTo", wintypes.LPCWSTR),
+                    ("fFlags", ctypes.c_uint),
+                    ("fAnyOperationsAborted", wintypes.BOOL),
+                    ("hNameMappings", ctypes.c_void_p),
+                    ("lpszProgressTitle", wintypes.LPCWSTR),
+                ]
+
+            src = str(source_folder) + "\0"
+            dst = str(target_plugin_dir.parent) + "\0"
+
+            op = SHFILEOPSTRUCT()
+            op.hwnd = 0
+            op.wFunc = FO_COPY
+            op.pFrom = src
+            op.pTo = dst
+            op.fFlags = 0
+            ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+
+
+            QMessageBox.information(
+                iface.mainWindow(),
+                "Pliki wtyczki zostały nadpisane.\n",
+                "Użyj wtyczki plugin reloader w celu przeładowania wtyczki.",
+                buttons=QMessageBox.Ok
+            )
+
+        except Exception as e:
+            iface.messageBar().pushMessage(
+                "BŁĄD PYTONA XD", str(e), level=3
+            )
+            QMessageBox.critical(
+                iface.mainWindow(),
+                "BŁĄD PYTONA XD",
+                f"Nie udało się skopiować folderu:\n{str(e)}"
+            )
+
+
+
 # xD
