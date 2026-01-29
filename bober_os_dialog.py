@@ -312,6 +312,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_pog_all_buildings.clicked.connect(self.anal_pog_all_buildings)
         self.pb_report_crs.clicked.connect(self.report_crs)
         self.pb_report_encoding.clicked.connect(self.report_encoding)
+        self.pb_report_unique_layer_sources.clicked.connect(self.report_unique_layer_sources)
         #MANAGE GPKG BUTTONS        
         self.pb_gpkg_load_layers.clicked.connect(self.load_layers)
         self.pb_gpkg_delete_layers.clicked.connect(self.delete_selected_layers)
@@ -4286,6 +4287,27 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f"Nie udało się skopiować folderu:\n{str(e)}"
             )
 
-
+    def report_unique_layer_sources(self):
+        unique_sources = set()
+        self.report("Rozpoczynam raport unikalnych źródeł dla warstw w projekcie...")
+        for layer in QgsProject.instance().mapLayers().values():
+            if layer.type() != QgsMapLayer.VectorLayer:
+                continue
+            provider = layer.providerType().lower()
+            if provider in ["wms", "wfs", "wmts", "xyz"]:
+                continue
+            source = layer.source()
+            if not source:
+                continue
+            if provider in ["ogr", "spatialite"]:
+                source = source.split("|")[0]
+            unique_sources.add(source)
+        if unique_sources:
+            self.report("Unikalne źródła dla warstw w projekcie:")
+            for src in unique_sources:
+                self.report(src)
+                self.report("-" * 15)
+        else:
+            self.report("Brak warstw wektorowych w projekcie.")
 
 # xD
