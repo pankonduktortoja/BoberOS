@@ -159,12 +159,33 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if saved_resource:
             self.resource_path.setFilePath(saved_resource)
 
-        saved_resource = self.load_setting("resource_path")
         if not saved_resource or not os.path.isdir(saved_resource):
             QMessageBox.warning(
                 self.iface.mainWindow(),
                 "Uwaga! Brak ścieżki do zasobu danych",
                 "Wybierz ścieżkę do zasobu danych przed korzystaniem z wtyczki.")
+        else:
+            source_folder_date = Path(saved_resource).parent / "WTYCZKI" / "bober_os"
+            resource_file = source_folder_date / "bober_os_dialog.py"
+
+            if resource_file.exists() and resource_file.is_file():
+                resource_mtime = resource_file.stat().st_mtime
+                newest_date = datetime.fromtimestamp(resource_mtime)
+
+                self.label_plugin_date.setText(
+                    f"Ostatnia aktualizacja wtyczki: {newest_date.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+
+                plugin_file = Path(__file__).resolve()
+
+                if plugin_file.stat().st_mtime < resource_mtime:
+                    QMessageBox.warning(
+                        self.iface.mainWindow(),
+                        f"Uwaga! Nieaktualna wtyczka - ostatnia aktualizacja {newest_date.strftime('%Y-%m-%d %H:%M:%S')}",
+                        "Zaktualizuj wtyczkę guzikiem, w pierwszej zakładce, żeby mieć fajne rzeczy."
+                    )
+            else:
+                self.report("Nie wyznaczono ścieżki do zasobu.")
             
         #TREEVIEWS + MODELS
         self.fs_model = QFileSystemModel(self)
