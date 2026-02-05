@@ -30,6 +30,7 @@ import psycopg2
 import subprocess
 import tempfile
 import ctypes
+import sys
 from ctypes import wintypes
 from qgis.core import *
 from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsReadWriteContext, QgsCoordinateTransformContext, QgsWkbTypes, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature, QgsVectorLayerExporter, QgsExpressionContext, QgsExpressionContextUtils, QgsRectangle, QgsMapRendererCustomPainterJob
@@ -182,7 +183,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     QMessageBox.warning(
                         self.iface.mainWindow(),
                         f"Uwaga! Nieaktualna wtyczka - ostatnia aktualizacja {newest_date.strftime('%Y-%m-%d %H:%M:%S')}",
-                        "Zaktualizuj wtyczkę guzikiem, w pierwszej zakładce, żeby mieć fajne rzeczy."
+                        "Zaktualizuj wtyczkę guzikiem, w pierwszej zakładce, żeby mieć fajne rzeczy. Dodane funkcjonalności widoczne są w konsoli (okienko po prawej stronie)."
                     )
             else:
                 self.report("Nie wyznaczono ścieżki do zasobu.")
@@ -305,6 +306,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_pog_profil.clicked.connect(self.pog_korekta_profilu)
         self.pb_pog_spacje.clicked.connect(self.pog_korekta_spacje)
         self.pb_pog_zgodnosc.clicked.connect(self.pog_zgodnosc)
+        self.pb_pog_to_xslx.clicked.connect(self.pog_to_xslx)
         #SAVE STYLES TO GPKG
         self.pb_style_save_single.clicked.connect(self.style_save_single)
         self.pb_style_save_all.clicked.connect(self.style_save_all)
@@ -4330,5 +4332,92 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.report("-" * 15)
         else:
             self.report("Brak warstw wektorowych w projekcie.")
+            
+    def pog_to_xslx(self):
+        layer = iface.activeLayer()
+        if not layer:
+            self.report("Nie wybrano poprawnej warstwy ze strefą planistyczną lub OUZ - brak kolumny \"symbol\".")
+            return
+        field_names = [f.name() for f in layer.fields()]
+        if "symbol" not in field_names:
+            self.report("Nie wybrano poprawnej warstwy ze strefą planistyczną lub OUZ - brak kolumny \"symbol\".")
+            return
+        path, _ = QFileDialog.getSaveFileName(None, "Zapisz plik XLSX", "", "Excel (*.xlsx)")
+        if not path:
+            return
+        if not path.lower().endswith(".xlsx"):
+            path += ".xlsx"
+        wanted = [
+            "oznaczenie",
+            "symbol",
+            "profilDodatkowy",
+            "maksNadziemnaIntensywnoscZabudowy",
+            "maksUdzialPowierzchniZabudowy",
+            "maksWysokoscZabudowy",
+            "minUdzialPowierzchniBiologicznieCzynnej"
+        ]
+        existing = [f for f in wanted if f in field_names]
+        unique_symbols = set()
+        for f in layer.getFeatures():
+            unique_symbols.add(str(f["symbol"]))
+        temp_layers = []
+        for sym in sorted(unique_symbols):
+            extract = processing.run(
+                "native:extractbyexpression",
+                {
+                    "INPUT": layer,
+                    "EXPRESSION": "\"symbol\" = '{}'".format(str(sym).replace("'", "''")),
+                    "OUTPUT": "TEMPORARY_OUTPUT"
+                }
+            )["OUTPUT"]
+            mapping = []
+            for name in existing:
+                fld = extract.fields().field(name)
+                mapping.append({
+                    "name": name,
+                    "type": fld.type(),
+                    "length": fld.length(),
+                    "precision": fld.precision(),
+                    "expression": f"\"{name}\""
+                })
+            refactored = processing.run(
+                "native:refactorfields",
+                {
+                    "INPUT": extract,
+                    "FIELDS_MAPPING": mapping,
+                    "OUTPUT": "TEMPORARY_OUTPUT"
+                }
+            )["OUTPUT"]
+            sorted_layer = processing.run(
+                "native:orderbyexpression",
+                {
+                    "INPUT": refactored,
+                    "EXPRESSION": "to_int(regexp_replace(\"oznaczenie\",'[^0-9]',''))",
+                    "ASCENDING": True,
+                    "NULLS_FIRST": False,
+                    "OUTPUT": "TEMPORARY_OUTPUT"
+                }
+            )["OUTPUT"]
+            sorted_layer.setName(str(sym))
+            temp_layers.append(sorted_layer)
+        processing.run(
+            "native:exporttospreadsheet",
+            {
+                "LAYERS": temp_layers,
+                "USE_ALIAS": False,
+                "FORMATTED_VALUES": False,
+                "OVERWRITE": True,
+                "OUTPUT": path
+            }
+        )
+        if sys.platform.startswith('win'):
+            subprocess.Popen(['explorer', '/select,', os.path.normpath(path)])
+        else:
+            from PyQt5.QtGui import QDesktopServices
+            from PyQt5.QtCore import QUrl
+            QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
+        self.report(f"Zapisano arkusz do: {path}")
+
+
 
 # xD
