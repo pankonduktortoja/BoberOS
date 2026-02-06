@@ -131,9 +131,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         saved_path = self.load_setting("project_path")
         if saved_path:
             self.project_path.setFilePath(saved_path)
-                
-        self.layer_area.currentIndexChanged.connect(self.update_label_layer_area)
-        
+                        
         saved_buffer = self.load_setting("buffer_value")
         if saved_buffer:
             self.sbBufferValue.setValue(int(saved_buffer))
@@ -381,13 +379,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def update_buffer_value(self, value):
         self.save_setting("buffer_value", str(value))
-    
-    def update_label_layer_area(self):
-        layer = self.layer_area.currentLayer()
-        if layer:
-            self.labelLayerArea.setText(f"Wybrana warstwa: {layer.name()}")
-        else:
-            self.labelLayerArea.setText("Brak wybranej warstwy")
 
     def populate_mpzp_symbol_columns(self):
         self.cb_mpzp_symbol_col.blockSignals(True)

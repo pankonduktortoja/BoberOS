@@ -59,8 +59,14 @@
         <height>30</height>
        </size>
       </property>
+      <property name="maximumSize">
+       <size>
+        <width>40</width>
+        <height>16777215</height>
+       </size>
+      </property>
       <property name="text">
-       <string>Wybrany bufor:</string>
+       <string>Bufor:</string>
       </property>
      </widget>
     </item>
@@ -68,7 +74,7 @@
      <widget class="QgsSpinBox" name="sbBufferValue">
       <property name="minimumSize">
        <size>
-        <width>64</width>
+        <width>120</width>
         <height>30</height>
        </size>
       </property>
@@ -81,34 +87,25 @@
      </widget>
     </item>
     <item>
-     <widget class="QLabel" name="labelLayerArea">
-      <property name="minimumSize">
+     <widget class="QLabel" name="label_2">
+      <property name="maximumSize">
        <size>
-        <width>0</width>
-        <height>30</height>
+        <width>16777215</width>
+        <height>5000</height>
        </size>
       </property>
       <property name="text">
-       <string>Brak warstwy</string>
+       <string>Warstwa z obszarem opracowania:</string>
       </property>
      </widget>
     </item>
     <item>
-     <widget class="QProgressBar" name="progressBar">
+     <widget class="QgsMapLayerComboBox" name="layer_area">
       <property name="minimumSize">
        <size>
-        <width>150</width>
-        <height>30</height>
+        <width>450</width>
+        <height>26</height>
        </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>30</height>
-       </size>
-      </property>
-      <property name="value">
-       <number>0</number>
       </property>
      </widget>
     </item>
@@ -183,38 +180,6 @@
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_10">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeType">
-             <enum>QSizePolicy::Fixed</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_2">
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>5000</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Wybierz warstwę z obszarem opracowania</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QgsMapLayerComboBox" name="layer_area"/>
-          </item>
-          <item>
            <spacer name="verticalSpacer_14">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
@@ -279,6 +244,12 @@
           </item>
           <item>
            <widget class="QTextBrowser" name="tbSettings">
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>130</height>
+             </size>
+            </property>
             <property name="frameShadow">
              <enum>QFrame::Sunken</enum>
             </property>
@@ -290,6 +261,7 @@ p, li { white-space: pre-wrap; }
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Aby korzystać z funkcjonalności wtyczki należy najpierw stworzyć geopaczkę (.gpkg) w celu lokalizacji zasobu lokalnego danych oraz posiadać załadowaną w projekcie warstwę z obszarem opracowania (nie musi być w ww. geopaczce).&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Wybrany bufor ma znaczenie przy zakresie do analiz oraz przy zakresie importowanych danych (np. przy buforze 15000 wtyczka zaciągnie do geopaczki wybrane obiekty w promieniu do 15 km od obszaru opracowania).&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Bufor wybieramy w lewym dolnym rogu okna - ustaw na 0 jeśli nie używasz buforu.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Do analiz i importów wybieramy warstwę z obszarem opracowania (na dole).&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Ścieżka do zasobu wybierana jest raz i nie należy jej później zmieniać.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
            </widget>
@@ -2404,7 +2376,7 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Najnowsza aktualizacja (05.02.26) --- dodano funkcję w narzędziach POG - eksport do .xslx tabeli ze strefami planistycznymi.&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;------------------------&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;(06.02.26) --- dodano całościowy raport z analiz do pliku pdf (sekcja analizuj).&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;(06.02.26) --- dodano całościowy raport z analiz do pliku pdf (sekcja analizuj). Dodano też fajne animacje i ulepszenia UI.&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;------------------------&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;------------------------&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
