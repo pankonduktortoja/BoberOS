@@ -37,9 +37,9 @@ from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFi
 from qgis.PyQt import *
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import *
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap, QPainter, QColor, QImage, QTextDocument, QDesktopServices
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap, QPainter, QColor, QImage, QTextDocument, QDesktopServices, QMovie
 from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog, QFileSystemModel, QFileDialog
-from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView, QFileDialog
+from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView, QFileDialog, QLabel
 from PyQt5.QtCore import Qt, QVariant, QDir, QSize, QUrl
 from qgis.PyQt.QtXml import QDomDocument
 from PyQt5.QtPrintSupport import QPrinter
@@ -347,9 +347,23 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_bdot_refresh.clicked.connect(self.populate_bdot_table)
         self.pb_bdot_import.clicked.connect(self.import_selected_bdot_layers)
         self.pb_bdot_uncheck.clicked.connect(self.uncheck_all_bdot)
+        
+        
 
     def report(self, msg):
         self.tbConsole.append(msg)
+
+    def show_gif(self):
+        gif_path = os.path.join(os.path.dirname(__file__), "gif.gif")
+        movie = QMovie(gif_path)
+        self.label_gif.setMovie(movie)
+        movie.start()
+
+    def show_static(self):
+        static_path = os.path.join(os.path.dirname(__file__), "static.png")
+        pixmap = QPixmap(static_path)
+        self.label_gif.setPixmap(pixmap)
+        self.label_gif.setAlignment(Qt.AlignCenter)
 
     def save_setting(self, key: str, value: str):
         settings = QSettings()
@@ -390,6 +404,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.cb_mpzp_symbol_col.blockSignals(False)
 
     def populate_import_external_filter_columns(self):
+        self.show_gif()
         self.cb_import_external_filter.clear()
 
         src_path = self.import_external_filter_path.filePath()
@@ -403,8 +418,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         for field in layer.fields():
             self.cb_import_external_filter.addItem(field.name())
+        self.show_static()
     
     def populate_numeracja_unikalna_columns(self):
+        self.show_gif()
         self.cb_numeracja_unikalna.blockSignals(True)
         self.cb_numeracja_unikalna.clear()
 
@@ -416,7 +433,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         for f in layer.fields():
             self.cb_numeracja_unikalna.addItem(f.name())
 
-        self.cb_numeracja_unikalna.blockSignals(False)    
+        self.cb_numeracja_unikalna.blockSignals(False)
+        self.show_static()        
 
     def init_ui_color_customization(self):
         self._ui_color_settings_key = "bober_os/settings/ui_bg_color"
@@ -513,7 +531,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def run_clear_console(self):
         self.tbConsole.setText("")
-        self.progressBar.reset()   
     
     def process_vector_files(
         self,
@@ -523,6 +540,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         target_crs="EPSG:2180",
         subfolder="",
         force_cp1250=False):
+        self.show_gif()
         if isinstance(input_paths, str):
             input_paths = [input_paths]
 
@@ -546,7 +564,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         context = QgsProject.instance().transformContext()
 
         total = len(input_paths)
-        self.progressBar.setValue(0)
 
         for i, src_path in enumerate(input_paths, 1):
             base = os.path.basename(src_path)
@@ -567,7 +584,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             if not gpkg_name:
                 self.report(f"No rule for: {base}")
-                self.progressBar.setValue(int(i / total * 100))
                 continue
 
             gpkg_path = os.path.join(out_dir, gpkg_name)
@@ -575,10 +591,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             layer = QgsVectorLayer(src_path, "src", "ogr")
             if not layer.isValid():
                 self.report(f"Failed to load layer: {base}")
-                self.progressBar.setValue(int(i / total * 100))
                 continue
 
-            # THIS IS THE KEY LINE – ALWAYS FORCE CP1250 WHEN REQUESTED
             if force_cp1250:
                 layer.dataProvider().setEncoding("CP1250")
 
@@ -617,7 +631,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             if not feats:
                 self.report(f"No valid features: {base}")
-                self.progressBar.setValue(int(i / total * 100))
                 continue
 
             prov.addFeatures(feats)
@@ -630,7 +643,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     os.remove(gpkg_path)
                 except Exception:
                     self.report(f"Cannot overwrite file: {gpkg_path}")
-                    self.progressBar.setValue(int(i / total * 100))
                     continue
 
             opts = QgsVectorFileWriter.SaveVectorOptions()
@@ -646,15 +658,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             if err != QgsVectorFileWriter.NoError:
                 self.report(f"Write failed: {base}")
 
-            self.progressBar.setValue(int(i / total * 100))
             QtWidgets.QApplication.processEvents()
 
-        self.progressBar.setValue(100)
         self.report("Operation completed.")
+        self.show_static()
  
     def act_fop_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.fop_path.filePath())
-
+        self.show_gif()
         match_rules = {
             "ParkiKrajobrazowe%": "FOP_ParkiKrajobrazowe.gpkg",
             "ParkiNarodowe%": "FOP_ParkiNarodowe.gpkg",
@@ -677,9 +688,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             subfolder=["DANE_AKTUALIZOWANE", "FOP"],
             force_cp1250=True
         )
+        self.show_static()
     
     def act_pomniki_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.pomniki_path.filePath())
+        self.show_gif()
 
         match_rules = {
             "PomnikiPrzyrodyPunktowe%": "FOP_PomnikiPrzyrody_punktowe.gpkg",
@@ -695,10 +708,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             target_crs="EPSG:2180",
             subfolder=["DANE_AKTUALIZOWANE", "FOP"],
             force_cp1250=True
-        )        
+        )
+        self.show_static()        
 
     def act_pig_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.pig_path.filePath())
+        self.show_gif()
 
         match_rules = {
             "cbdg_midas_zloza%": "PIG_UdokumentowaneZloza.gpkg",
@@ -721,9 +736,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             target_crs="EPSG:2180",
             subfolder=["DANE_AKTUALIZOWANE", "PIG"]
         )
+        self.show_static()
 
     def act_oze_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.oze_path.filePath())
+        self.show_gif()
 
         match_rules = {
             "elektrownie wiatrowe%": "OZE_elektrownie_wiatrowe.gpkg",
@@ -743,10 +760,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             fields_per_rule=fields_per_rule,
             target_crs="EPSG:2180",
             subfolder=["DANE_AKTUALIZOWANE", "OZE"]
-        )        
+        )
+        self.show_static()        
 
     def act_adm_layers(self):
         shp_list = QgsFileWidget.splitFilePaths(self.adm_path.filePath())
+        self.show_gif()
 
         match_rules = {
             "%Pas_ochronny%": "ADM_PasOchronny.gpkg",
@@ -944,12 +963,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.report(f"Nie udało się wykonać VACUUM:\n{e}")
                 QtWidgets.QApplication.processEvents()
 
-            pct = int(((i + 1) / total) * 100)
-            self.progressBar.setValue(pct)
             QtWidgets.QApplication.processEvents()
 
             self.report("Operacja zakończona.\n")
             QtWidgets.QApplication.processEvents()
+        self.show_static()
 
     def build_filter_geometry(self) -> QgsGeometry | None:
         layer = self.layer_area_2180()
@@ -997,7 +1015,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if not filter_geom:
             self.report("Brak geometrii filtrującej.")
             return
-
+        self.show_gif()
         bbox = filter_geom.boundingBox()
         engine = QgsGeometry.createGeometryEngine(filter_geom.constGet())
         engine.prepareGeometry()
@@ -1008,8 +1026,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if total == 0:
             self.report("Brak plików do importu.")
             return
-
-        self.progressBar.setValue(0)
 
         for i, path in enumerate(source_files, start=1):
             base = os.path.basename(path)
@@ -1062,14 +1078,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f"Dodano {len(matching_features)} obiektów → {layer_name}"
             )
 
-            if i % 3 == 0:
-                self.progressBar.setValue(int(i / total * 100))
-                QtWidgets.QApplication.processEvents()
-
-        self.progressBar.setValue(100)
         self.report("Import zakończony.\n")
+        self.show_static()
 
     def import_filtered_layers(self, layers_config: dict):
+        self.show_gif()
         resource_base = self.resource_path.filePath()
         project_gpkg = self.project_path.filePath()
 
@@ -1093,8 +1106,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 )
 
         self.import_layers(files, project_gpkg, suffix)
+        self.show_static()
 
     def import_all_updated_data(self):
+        self.show_gif()
         base = os.path.join(self.resource_path.filePath(), "DANE_AKTUALIZOWANE")
         files = [
             os.path.join(root, f)
@@ -1107,8 +1122,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
         self.import_layers(files, self.project_path.filePath(), suffix)
+        self.show_static()
 
     def import_all_wody_data(self):
+        self.show_gif()
         base = os.path.join(self.resource_path.filePath(), "DANE_PGW_GZWP")
         files = [
             os.path.join(root, f)
@@ -1121,8 +1138,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
         self.import_layers(files, self.project_path.filePath(), suffix)
+        self.show_static()
 
     def import_all_powodz_data(self):
+        self.show_gif()
         base = os.path.join(self.resource_path.filePath(), "DANE_POWODZ")
         files = [
             os.path.join(root, f)
@@ -1135,8 +1154,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         suffix = f"_bufor{buffer}{date}" if buffer > 0 else date
 
         self.import_layers(files, self.project_path.filePath(), suffix)
+        self.show_static()
 
     def populate_bdot_table(self):
+        self.show_gif()
         table = self.table_bdot
         table.clear()
         table.setRowCount(0)
@@ -1158,16 +1179,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             if not filename.lower().endswith(".gpkg"):
                 continue
 
-            name = os.path.splitext(filename)[0]  # OT_BUHD_A
+            name = os.path.splitext(filename)[0]
             parts = name.split("_")
 
-            # base BDOT code (OT_BUHD)
             base_code = "_".join(parts[:2]) if len(parts) > 2 else parts[0]
 
             if base_code not in self.BDOT_LAYERS:
                 continue
 
-            # geometry suffix
             geom_suffix = ""
             if parts[-1] in ("A", "L", "P"):
                 geom_suffix = f"_{parts[-1]}"
@@ -1192,6 +1211,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         table.horizontalHeader().setStretchLastSection(True)
 
         self.report(f"Załadowano {row} warstw BDOT.")
+        self.show_static()
 
     def get_matching_teryt_codes(self) -> set[str]:
         area = self.layer_area_2180()
@@ -1222,10 +1242,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             g = f.geometry()
             if g and engine.intersects(g.constGet()):
                 teryt.add(str(f["JPT_KOD_JE"]))
-
         return teryt
 
     def import_selected_bdot_layers(self):
+        self.show_gif()
         project_gpkg = self.project_path.filePath()
         if not project_gpkg:
             self.report("Brak project_path.")
@@ -1302,6 +1322,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Dodano {len(feats)} → {out_name}")
 
         self.report("BDOT import zakończony.\n")
+        self.show_static()
     
     def uncheck_all_bdot(self):
         table = self.table_bdot
@@ -1312,6 +1333,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 item.setCheckState(Qt.Unchecked)
 
     def layout_area_gen(self):
+        self.show_gif()
         self.report("Rozpoczynam generowanie zasięgów układów...")
 
         target_crs = QgsCoordinateReferenceSystem("EPSG:2180")
@@ -1322,13 +1344,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         if not layouts:
             self.report("Brak układów w projekcie. Nie dodano żadnych warstw.")
-            if self.progressBar:
-                self.progressBar.setValue(0)
             return
 
         total = len(layouts)
-        self.progressBar.setMaximum(total)
-        self.progressBar.setValue(0)
 
         unique_extents = []
         extent_sources = {}
@@ -1346,7 +1364,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             if not map_items:
                 self.report("  Układ pominięty – brak elementów mapy.")
-                self.progressBar.setValue(idx)
                 continue
 
             for map_item in map_items:
@@ -1398,8 +1415,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     created_layers += 1
                     self.report(f"Dodano warstwę: Zasięg - {layout_name}")
 
-            self.progressBar.setValue(idx)
-
         shared = {k: v for k, v in extent_sources.items() if len(v) > 1}
         if shared:
             self.report("Układy współdzielące ten sam zasięg:")
@@ -1410,15 +1425,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report("Nie dodano żadnych nowych warstw — brak unikalnych zasięgów.")
         else:
             self.report("Zakończono.")
+        self.show_static()
 
     def pog_numeracja(self):
+        self.show_gif()
         self.report("Rozpoczynam numerację obiektów POG...")
 
         layer = self.iface.activeLayer()
         if not layer:
             self.report("Brak aktywnej warstwy. Wybierz warstwę i spróbuj ponownie.")
-            if self.progressBar:
-                self.progressBar.setValue(0)
             return
 
         symbol_field = "symbol"
@@ -1443,9 +1458,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.report(f"Znaleziono {len(unique_symbols)} unikalnych symboli: {unique_symbols}")
 
-        self.progressBar.setMaximum(len(unique_symbols))
-        self.progressBar.setValue(0)
-
         layer.startEditing()
 
         processed_symbols = 0
@@ -1461,12 +1473,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
             if not features:
                 self.report("  Brak obiektów z tym symbolem – pomijam.")
-                self.progressBar.setValue(idx)
                 continue
 
             if len(features) < 2:
                 self.report("  Za mało obiektów do wyznaczenia kolejności – pomijam.")
-                self.progressBar.setValue(idx)
                 continue
 
             start_feature = min(features, key=lambda f: (
@@ -1503,8 +1513,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f"  Znumerowano {len(visited)} obiektów dla symbolu {symbol}."
             )
 
-            self.progressBar.setValue(idx)
-
         if processed_symbols == 0:
             self.report("Nie wykonano numeracji – żadna grupa nie spełniała wymagań.")
         else:
@@ -1512,8 +1520,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f"Zakończono numerację. Przetworzono {processed_symbols} symboli, "
                 f"znumerowano {total_numbered} obiektów."
             )
+        self.show_static()
 
     def pog_korekta_profilu(self):
+        self.show_gif()
         self.report("Rozpoczynam korektę profilu podstawowego...")
 
         symbol_to_profile = {
@@ -1553,14 +1563,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         changes = {}
 
-        self.progressBar.setMaximum(total)
-        self.progressBar.setValue(0)
-
         for i, f in enumerate(features, start=1):
             expected = symbol_to_profile.get(f[symbol_idx])
             if expected and f[profile_idx] != expected:
                 changes[f.id()] = {profile_idx: expected}
-            self.progressBar.setValue(i)
 
         if changes:
             layer.startEditing()
@@ -1569,14 +1575,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Zaktualizowano {len(changes)} obiektów.")
         else:
             self.report("Nie dokonano żadnych zmian.")
+        self.show_static()
 
     def pog_korekta_spacje(self):
+        self.show_gif()
         self.report("Rozpoczynam korektę spacji w kolumnach...")
 
         layer = self.iface.activeLayer()
         if not layer:
             self.report("Brak aktywnej warstwy. Wybierz warstwę i spróbuj ponownie.")
-            self.progressBar.setValue(0)
             return
 
         columns_to_process = ["profilPodstawowy", "profilDodatkowy"]
@@ -1589,14 +1596,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         total = len(features)
         if total == 0:
             self.report("Warstwa nie zawiera obiektów – nic do korekty.")
-            self.progressBar.setValue(0)
             return
 
         field_indexes = {c: layer.fields().indexFromName(c) for c in columns_to_process}
         changes = {}
-
-        self.progressBar.setMaximum(total)
-        self.progressBar.setValue(0)
 
         for idx, f in enumerate(features, start=1):
             fid = f.id()
@@ -1612,8 +1615,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             if attr_changes:
                 changes[fid] = attr_changes
 
-            self.progressBar.setValue(idx)
-
         if changes:
             layer.startEditing()
             layer.dataProvider().changeAttributeValues(changes)
@@ -1621,8 +1622,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Zakończono korektę spacji. Zaktualizowano {len(changes)} obiektów.")
         else:
             self.report("Nie dokonano żadnych zmian – wszystkie wartości były poprawne.")
+        self.show_static()
 
     def pog_zgodnosc(self):
+        self.show_gif()
         self.report("Analiza zgodności POG z MPZP - start")
         mpzp_layer = self.mpzp_layer.currentLayer()
         pog_layer = self.pog_layer.currentLayer()
@@ -1683,8 +1686,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         pog_index = QgsSpatialIndex(pog_layer.getFeatures())
 
         total = mpzp_layer.featureCount()
-        self.progressBar.setMaximum(total)
-        self.progressBar.setValue(0)
 
         RULES = {
             "MN":  [("PP", "teren zabudowy mieszkaniowej jednorodzinnej"),
@@ -1807,7 +1808,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return False
 
         for i, mpzp_f in enumerate(mpzp_layer.getFeatures()):
-            self.progressBar.setValue(i + 1)
 
             geom = mpzp_f.geometry()
             if not geom or geom.isEmpty():
@@ -1852,8 +1852,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         QgsProject.instance().addMapLayer(out_layer)
 
         self.report("Analiza zgodności POG z MPZP - koniec\n")
+        self.show_static()
 
     def reset_fid_values(self):
+        self.show_gif()
         layer = self.iface.activeLayer()
         if not layer or "fid" not in layer.fields().names():
             self.report("Brak warstwy lub pola 'fid'.")
@@ -1870,8 +1872,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         layer.commitChanges()
 
         self.report("Zresetowano kolumnę fid.")
+        self.show_static()
 
     def numeracja_pol(self):
+        self.show_gif()
         self.report("Rozpoczynam numerację wszystkich obiektów...")
 
         layer = self.iface.activeLayer()
@@ -1898,20 +1902,19 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         changes = {}
         total = len(features)
-        self.progressBar.setMaximum(total)
-        self.progressBar.setValue(0)
 
         for i, f in enumerate(features, start=1):
             changes[f.id()] = {idx: str(i)}
-            self.progressBar.setValue(i)
 
         layer.startEditing()
         layer.dataProvider().changeAttributeValues(changes)
         layer.commitChanges()
 
         self.report(f"Zakończono numerację {total} obiektów.")
+        self.show_static()
 
     def numeracja_unikalna(self):
+        self.show_gif()
         self.report("Rozpoczynam numerację grup obiektów...")
 
         layer = self.numeracja_layer.currentLayer()
@@ -1934,9 +1937,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         num_idx = layer.fields().indexFromName(num_field)
         groups = layer.uniqueValues(layer.fields().lookupField(group_field))
 
-        self.progressBar.setMaximum(len(groups))
-        self.progressBar.setValue(0)
-
         layer.startEditing()
         total_numbered = 0
 
@@ -1945,9 +1945,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f for f in layer.getFeatures(QgsFeatureRequest(QgsExpression(f'"{group_field}" = \'{gval}\'')))
                 if f.geometry() and not f.geometry().isEmpty()
             ]
-            if not feats:
-                self.progressBar.setValue(i)
-                continue
 
             centroids = {f.id(): f.geometry().centroid().asPoint() for f in feats}
             feats.sort(key=lambda f: (centroids[f.id()].x(), centroids[f.id()].y()))
@@ -1956,12 +1953,13 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             layer.dataProvider().changeAttributeValues(changes)
 
             total_numbered += len(feats)
-            self.progressBar.setValue(i)
 
         layer.commitChanges()
         self.report(f"Zakończono numerację. Zaktualizowano {total_numbered} obiektów.")
+        self.show_static()
 
     def import_external(self):
+        self.show_gif()
         ref_layer = self.layer_area.currentLayer()
         if not ref_layer or not ref_layer.isValid():
             self.report("Nie wybrano warstwy referencyjnej.")
@@ -2088,11 +2086,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Pominięto {layer_name} – brak przecięć.")
             return
 
-        self.progressBar.setValue(100)
         self.report(f"Dodano {added} obiektów.")
         self.report("Operacja zakończona.\n")
+        self.show_static()
         
     def import_external_filter(self):
+        self.show_gif()
         project_gpkg = self.project_path.filePath()
         if not project_gpkg:
             self.report("Nie ustawiono ścieżki do projektu.")
@@ -2122,7 +2121,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Kolumna '{field_name}' nie istnieje.")
             return
 
-        # output name
         base_name = self.te_import_external_filter_name.text().strip()
         if not base_name:
             base_name = os.path.splitext(os.path.basename(src_path))[0]
@@ -2168,21 +2166,16 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )
 
         processed = 0
-        self.progressBar.setValue(0)
 
         for f in layer.getFeatures(request):
             writer.addFeature(f)
             processed += 1
 
-            if processed % 200 == 0:
-                self.progressBar.setValue(int(processed / count * 100))
-                QtWidgets.QApplication.processEvents()
-
         del writer
 
-        self.progressBar.setValue(100)
         self.report(f"Dodano {processed} obiektów.")
         self.report("Import zakończony.\n")
+        self.show_static()
 
     def report_intersections(
         self,
@@ -2222,6 +2215,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         return count
 
     def anal_fop(self):
+        self.show_gif()
         self.report("Analiza FOP - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2292,10 +2286,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     self.report(" | ".join(vals))
 
         self.report("Analiza FOP - koniec\n")
+        self.show_static()
 
     def anal_fop_10km(self):
-        import os
-        from qgis.PyQt import QtWidgets
+        self.show_gif()
 
         self.report("Analiza FOP 10 km - start")
         QtWidgets.QApplication.processEvents()
@@ -2430,8 +2424,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.report(" ".join(parts))
 
         self.report("Analiza FOP 10 km - koniec\n")
+        self.show_static()
 
     def anal_adm(self):
+        self.show_gif()
         self.report("Analiza ADMINISTRACYJNE - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2464,7 +2460,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.report(
                     f"{name}: {'istnieje' if os.path.exists(path) else 'NIE istnieje'}."
                 )
-                self.progressBar.setValue(int(i / total * 100))
                 continue
 
             if not os.path.exists(path):
@@ -2476,11 +2471,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             count = self.report_intersections(layer, filter_geom, fields)
             self.report(f"Liczba: {count}\n")
 
-            self.progressBar.setValue(int(i / total * 100))
-
         self.report("Analiza ADMINISTRACYJNE zakończona.\n")
+        self.show_static()
 
     def anal_pig(self):
+        self.show_gif()
         self.report("Analiza PIG - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2510,11 +2505,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             count = self.report_intersections(layer, filter_geom, fields)
             self.report(f"Liczba: {count}\n")
 
-            self.progressBar.setValue(int(i / total * 100))
-
         self.report("Analiza PIG zakończona.\n")
+        self.show_static()
 
     def anal_wody(self):
+        self.show_gif()
         self.report("Analiza WODY - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2549,11 +2544,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             count = self.report_intersections(layer, filter_geom, fields)
             self.report(f"Liczba: {count}\n")
 
-            self.progressBar.setValue(int(i / total * 100))
-
         self.report("Analiza WODY zakończona.\n")
+        self.show_static()
 
     def anal_powodz(self):
+        self.show_gif()
         self.report("Analiza POWODZ - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2587,11 +2582,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             count = self.report_intersections(layer, filter_geom, fields)
             self.report(f"Liczba: {count}\n")
 
-            self.progressBar.setValue(int(i / total * 100))
-
         self.report("Analiza POWODZ zakończona.\n")
+        self.show_static()
 
     def anal_inne(self):
+        self.show_gif()
         self.report("Analiza INNE - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2673,8 +2668,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     self.report(" | ".join(row))
 
         self.report("Analiza INNE zakończona.\n")
+        self.show_static()
 
     def anal_oze(self):
+        self.show_gif()
         self.report("Analiza OZE - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2704,11 +2701,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             count = self.report_intersections(layer, filter_geom, fields)
             self.report(f"Liczba: {count}\n")
 
-            self.progressBar.setValue(int(i / total * 100))
-
         self.report("Analiza OZE zakończona.\n")
+        self.show_static()
 
     def anal_lasy(self):
+        self.show_gif()
         self.report("Analiza LASY - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2720,8 +2717,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         resource_base = self.resource_path.filePath()
         rel_path = "DANE_INNE/INNE_Lasy_BDL.gpkg"
         abs_path = os.path.join(resource_base, rel_path)
-
-        self.progressBar.setValue(0)
 
         if not os.path.exists(abs_path):
             self.report("Plik nie istnieje.")
@@ -2776,7 +2771,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.report(f"Powierzchnia wszystkich wydzieleń [ha]: {analysis_area:.2f}")
 
         QtWidgets.QApplication.processEvents()
-        self.progressBar.setValue(25)
 
         def dissolve_by_field(field_name: str):
             if field_name not in field_names:
@@ -2810,18 +2804,16 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 QtWidgets.QApplication.processEvents()
 
         dissolve_by_field("site_type")
-        self.progressBar.setValue(50)
 
         dissolve_by_field("forest_fun")
-        self.progressBar.setValue(75)
 
         dissolve_by_field("prot_categ")
-        self.progressBar.setValue(100)
 
         self.report("Analiza LASY zakończona.\n")
-        QtWidgets.QApplication.processEvents()
+        self.show_static()
 
     def list_project_gpkg_layers(self) -> list[str]:
+        self.show_gif()
         gpkg = self.project_path.filePath()
         if not gpkg or not os.path.isfile(gpkg):
             return []
@@ -2835,8 +2827,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return [row[0] for row in cur.fetchall()]
         finally:
             conn.close()
+        self.show_static()
 
     def load_layers(self):
+        self.show_gif()
         table = self.table_gpkg
         table.setRowCount(0)
         table.setColumnCount(2)
@@ -2865,8 +2859,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         table.horizontalHeader().setStretchLastSection(True)
 
         self.report("Tabela zaktualizowana.")
+        self.show_static()
 
     def delete_selected_layers(self):
+        self.show_gif()
         table = self.table_gpkg
         rows_to_delete = [r for r in range(table.rowCount()) if table.item(r, 0).checkState() == Qt.Checked]
         if not rows_to_delete:
@@ -2900,8 +2896,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report("Usuwanie zakończone, tabela zaktualizowana.")
         except Exception as e:
             self.report(f"Błąd usuwania warstw: {e}")
+        self.show_static()
 
     def rename_selected_layer(self):
+        self.show_gif()
         table = self.table_gpkg
         rows_checked = [r for r in range(table.rowCount()) if table.item(r, 0).checkState() == Qt.Checked]
         if len(rows_checked) != 1:
@@ -2927,8 +2925,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Nazwę warstwy '{old_name}' zmieniono na '{new_name}' i odświeżono tabelę.")
         except Exception as e:
             self.report(f"Błąd zmiany nazwy: {e}")
+        self.show_static()
 
     def vacuum_gpkg(self):
+        self.show_gif()
         try:
             conn = sqlite3.connect(self.project_path.filePath())
             conn.execute("VACUUM")
@@ -2936,6 +2936,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report("Geopaczka odkurzona.")
         except Exception as e:
             self.report(f"Błąd odkurzania geopaczki: {e}")
+        self.show_static()
 
     def wind_area_2180(self):
         layer = self.wind_area.currentLayer()
@@ -2978,7 +2979,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if not feats:
             self.report("Nieudana transformacja warstwy z elektrowniami.")
             return None
-
         mem_dp.addFeatures(feats)
         return mem
 
@@ -2994,7 +2994,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 continue
             g = g.buffer(5000, 8)
             geom = g if geom is None else geom.combine(g)
-
         return geom
 
     def get_matching_teryt_codes_wind(self) -> set[str]:
@@ -3019,7 +3018,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         teryt = set()
         req = QgsFeatureRequest().setFilterRect(bbox)
-
         for f in layer.getFeatures(req):
             g = f.geometry()
             if g and engine.intersects(g.constGet()):
@@ -3034,7 +3032,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         bbox = buffer_geom.boundingBox()
         engine = QgsGeometry.createGeometryEngine(buffer_geom.constGet())
         engine.prepareGeometry()
-
         return bbox, engine
 
     def add_buffer_layer(self, geom: QgsGeometry, name: str):
@@ -3042,12 +3039,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         pr = layer.dataProvider()
         pr.addAttributes([QgsField("typ", QVariant.String)])
         layer.updateFields()
-
         f = QgsFeature(layer.fields())
         f.setGeometry(geom)
         f["typ"] = "strefa"
         pr.addFeature(f)
-
         QgsProject.instance().addMapLayer(layer)
 
     def anal_wind_build_base(self, gpkg_name: str) -> list[QgsFeature]:
@@ -3082,6 +3077,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         return feats
 
     def anal_wind_pobliska(self):
+        self.show_gif()
         layer = self.wind_area_2180()
         if not layer:
             self.report("Brak wybranej warstwy z elektrowniami wiatrowymi.")
@@ -3125,8 +3121,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         for n in sorted(names):
             self.report(f"Gmina pobliska: {n}")
+        self.show_static()
 
     def anal_wind_build_700(self):
+        self.show_gif()
         feats = self.anal_wind_build_base("OT_BUBD_A.gpkg")
         feats = [f for f in feats if f["KODKST"] == "110"]
 
@@ -3146,8 +3144,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return
         self.add_buffer_layer(geom, "Bufor_budynki_mieszkalne_700m")
         self.report(f"Dodano warstwę z buforem od budynków mieszkalnych.")
+        self.show_static()
 
     def anal_wind_build_700_rad(self):
+        self.show_gif()
         feats = self.anal_wind_build_base("OT_BUBD_A.gpkg")
         feats = [f for f in feats if f["KODKST"] == "110"]
 
@@ -3169,8 +3169,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return
         self.add_buffer_layer(geom, "Bufor_budynki_mieszkalne_700m_rotor")
         self.report(f"Dodano warstwę z buforem od budynków mieszkalnych + długość rotora.")
+        self.show_static()
 
     def anal_wind_elect(self):
+        self.show_gif()
         allowed = {
             "linia elektroenergetyczna najwyższego napięcia",
             "linia elektroenergetyczna wysokiego napięcia"
@@ -3215,9 +3217,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 f"Bufor_linie_elektroenergetyczne_{buffer_h}m"
             )
             self.report(f"Dodano warstwę z buforem od linii elektroenergetycznych {buffer_h} m.")
+        self.show_static()
 
     def anal_pog_building_core(self, use_flood: bool):
-
+        self.show_gif()
         use_strefy = self.cb_use_pog_strefa.isChecked()
 
         if use_flood:
@@ -3472,6 +3475,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         project.addMapLayer(final_layer)
 
         self.report("Analiza zakończona")
+        self.show_static()
 
     def anal_pog_all_buildings(self):
         self.anal_pog_building_core(use_flood=False)
@@ -3480,6 +3484,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.anal_pog_building_core(use_flood=True)
 
     def load_pg_tree(self):
+        self.show_gif()
         user = self.le_pg_username.text()
         password = self.le_pg_password.text()
         host = "localhost"
@@ -3553,8 +3558,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.tv_pg_load.setModel(model)
         self.report("Przeładowano strukturę bazy danych")
+        self.show_static()
 
     def pg_refresh(self, host='localhost', port='5432'):
+        self.show_gif()
         project = QgsProject.instance()
         root = project.layerTreeRoot()
 
@@ -3629,8 +3636,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 project.addMapLayer(new_layer)
 
             self.report(f"Odświeżono źródło warstwy: {new_layer.name()}")
+        self.show_static()
 
     def pg_import(self):
+        self.show_gif()
         idx = self.tv_pg_import.currentIndex()
         if not idx.isValid():
             self.report("Nie wybrano pliku.")
@@ -3753,8 +3762,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return
 
         self.report(f"Zaimportowano: {db_name}.{schema_name}.{table_name}")
+        self.show_static()
 
     def pg_load(self):
+        self.show_gif()
         idx = self.tv_pg_load.currentIndex()
         if not idx.isValid():
             self.report("Nie wybrano warstwy.")
@@ -3822,8 +3833,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Zastosowano styl: {os.path.basename(matched_qml)}")
         else:
             self.report("Nie znaleziono pasującego pliku QML.")
+        self.show_static()
 
     def pg_delete(self):
+        self.show_gif()
         idx = self.tv_pg_load.currentIndex()
         if not idx.isValid():
             self.report("Nie wybrano warstwy.")
@@ -3880,8 +3893,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         except Exception as e:
             self.report(f"Błąd przy usuwaniu tabeli: {str(e)}")
         self.load_pg_tree()
+        self.show_static()
 
     def pg_split(self):
+        self.show_gif()
         import tempfile
 
         layer = iface.activeLayer()
@@ -3957,8 +3972,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.report(f"Nie udało się utworzyć warstwy dla: {filtered_layer_name}")
 
         self.report(f"Zakończono dzielenie warstwy '{base_layer_name}'.")
+        self.show_static()
 
     def pg_pound_replace(self):
+        self.show_gif()
         layer = iface.activeLayer()
         if not layer:
             self.report("Brak aktywnej warstwy.")
@@ -4008,8 +4025,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Zaktualizowano {affected} rekordów w kolumnie '{field_name}'.")
         except Exception as e:
             self.report(f"Błąd przy aktualizacji kolumny '{field_name}': {str(e)}")
+        self.show_static()
 
     def update_style_filter(self, layer):
+        self.show_gif()
         if not layer:
             self.style_model.setNameFilters(["__nothing__"])
             self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
@@ -4029,6 +4048,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.style_model.setNameFilters(filters)
         self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
         self.pb_style_layer.setEnabled(False)
+        self.show_static()
 
     def update_style_button(self):
         indexes = self.tv_style.selectionModel().selectedIndexes()
@@ -4041,6 +4061,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_style_layer.setEnabled(path.lower().endswith(".qml"))
 
     def apply_style_to_layer(self):
+        self.show_gif()
         layer = self.cb_style_layer.currentLayer()
         if layer is None:
             self.report("Nie wybrano warstwy do wczytania stylu.")
@@ -4070,8 +4091,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         style_name = path.split("/")[-1] if "/" in path else path.split("\\")[-1]
         self.report(f"Wczytano styl '{style_name}' dla warstwy -> '{layer.name()}'.")
+        self.show_static()
 
     def apply_previous_style_to_layer(self):
+        self.show_gif()
         layer = self.cb_style_layer.currentLayer()
         if layer is None:
             self.report("Nie wybrano warstwy do wczytania ostatnio zmienionego stylu.")
@@ -4089,8 +4112,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         mgr.setCurrentStyle(backup_name)
         layer.triggerRepaint()
         self.report(f"Wczytano ostatnio zmieniony styl dla warstwy '{layer.name()}'.")
+        self.show_static()
 
     def export_active_layer_style(self):
+        self.show_gif()
         layer = self.iface.activeLayer()
         if layer is None:
             self.report("Nie wybrano aktywnej warstwy.")
@@ -4125,27 +4150,24 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
         else:
             self.report(f"Błąd podczas eksportu stylu: {error_message}")
+        self.show_static()
 
     def style_save_single(self):
-        self.progressBar.reset()
-        self.progressBar.setValue(0)
+        self.show_gif()
         self.report("Rozpoczynam zapisywanie stylu aktywnej warstwy...")
 
         layer = self.iface.activeLayer()
 
         if not layer:
             self.report("Brak aktywnej warstwy. Operacja przerwana.")
-            self.progressBar.setValue(0)
             return
 
         if layer.type() != QgsMapLayerType.VectorLayer:
             self.report(f"Warstwa '{layer.name()}' nie jest warstwą wektorową.")
-            self.progressBar.setValue(0)
             return
 
         if not layer.source().lower().endswith(".gpkg"):
             self.report(f"Warstwa '{layer.name()}' nie pochodzi z GeoPackage. Pomijam.")
-            self.progressBar.setValue(0)
             return
 
         layer_name = layer.name()
@@ -4158,16 +4180,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 "",
                 QgsMapLayer.AllStyleCategories
             )
-
             layer.triggerRepaint()
-            self.progressBar.setValue(100)
             self.report(f"Zapisano styl warstwy '{layer_name}'.")
 
         except Exception as e:
             self.report(f"Błąd podczas zapisywania stylu: {str(e)}")
-            self.progressBar.setValue(0)
+        self.show_static()
 
     def style_save_all(self):
+        self.show_gif()
         reply = QMessageBox.question(
             self,
             "Potwierdzenie",
@@ -4181,8 +4202,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return
 
         self.report("Rozpoczynam zapisywanie stylów dla wszystkich warstw z GeoPackage...")
-        self.progressBar.reset()
-        self.progressBar.setValue(0)
 
         project = QgsProject.instance()
         vector_layers = [
@@ -4198,7 +4217,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.report(f"Liczba warstw do zapisania: {layer_count_total}")
 
-        self.progressBar.setMaximum(100)
         processed = 0
 
         for layer in vector_layers:
@@ -4216,9 +4234,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 layer.triggerRepaint()
                 processed += 1
 
-                progress = int((processed / layer_count_total) * 100)
-                self.progressBar.setValue(progress)
-
                 self.report(
                     f"[{processed}/{layer_count_total}] Zapisano styl dla: {layer_name}"
                 )
@@ -4227,9 +4242,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.report(f"Błąd przy zapisywaniu stylu warstwy '{layer_name}': {str(e)}")
 
         self.report("Zakończono zapisywanie stylów dla wszystkich warstw z GeoPackage.")
-        self.progressBar.setValue(100)
+        self.show_static()
 
     def report_crs(self):
+        self.show_gif()
         project = QgsProject.instance()
 
         for layer in project.mapLayers().values():
@@ -4242,9 +4258,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Warstwa: {layer_name}")
             self.report(f"  CRS ID: {authid}")
             self.report(f"  CRS Opis: {description}")
-            self.report("-" * 15)        
+            self.report("-" * 15)
+        self.show_static()
 
     def report_encoding(self):
+        self.show_gif()
         project = QgsProject.instance()
         for layer in project.mapLayers().values():
             if isinstance(layer, QgsVectorLayer):
@@ -4252,7 +4270,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 encoding = layer.dataProvider().encoding()
                 self.report(f"Nazwa warstwy: {layer_name}")
                 self.report(f" Kodowanie: {encoding}")
-                self.report("-" * 15)        
+                self.report("-" * 15)
+        self.show_static()                
 
     def upgrade_plugin(self, *args):
         try:
@@ -4313,6 +4332,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             )
 
     def report_unique_layer_sources(self):
+        self.show_gif()
         unique_sources = set()
         self.report("Rozpoczynam raport unikalnych źródeł dla warstw w projekcie...")
         for layer in QgsProject.instance().mapLayers().values():
@@ -4334,8 +4354,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 self.report("-" * 15)
         else:
             self.report("Brak warstw wektorowych w projekcie.")
+        self.show_static()
             
     def pog_to_xslx(self):
+        self.show_gif()
         layer = iface.activeLayer()
         if not layer:
             self.report("Nie wybrano poprawnej warstwy ze strefą planistyczną lub OUZ - brak kolumny \"symbol\".")
@@ -4417,6 +4439,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         else:
             QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
         self.report(f"Zapisano arkusz do: {path}")
+        self.show_static()
 
     def anal_pdf_report(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -4425,6 +4448,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             "",
             "PDF (*.pdf)"
         )
+        self.show_gif()
 
         if not path:
             return
@@ -4474,7 +4498,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         else:
             QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
         self.report(f"Zapisano raport PDF do: {path}")
-
+        self.show_static()
 
 
 # xD
