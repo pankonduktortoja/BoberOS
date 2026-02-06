@@ -1410,6 +1410,26 @@ p, li { white-space: pre-wrap; }
             </widget>
            </item>
            <item>
+            <spacer name="verticalSpacer_8">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_pdf_report">
+             <property name="text">
+              <string>Eksportuj raport ze wszystkich analiz do PDF</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <spacer name="verticalSpacer_16">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -1581,7 +1601,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>4</number>
         </property>
         <widget class="QWidget" name="tab_11">
          <attribute name="title">
@@ -2366,6 +2386,8 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Najnowsza aktualizacja (05.02.26) --- dodano funkcję w narzędziach POG - eksport do .xslx tabeli ze strefami planistycznymi.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;------------------------&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;(06.02.26) --- dodano całościowy raport z analiz do pliku pdf (sekcja analizuj).&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;------------------------&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;------------------------&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>

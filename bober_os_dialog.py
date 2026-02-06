@@ -37,11 +37,12 @@ from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFi
 from qgis.PyQt import *
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import *
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap, QPainter, QColor, QImage
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap, QPainter, QColor, QImage, QTextDocument, QDesktopServices
 from qgis.PyQt.QtWidgets import QMessageBox, QDialog, QColorDialog, QFileSystemModel, QFileDialog
-from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView
-from PyQt5.QtCore import Qt, QVariant, QDir, QSize
+from PyQt5.QtWidgets import QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView, QFileDialog
+from PyQt5.QtCore import Qt, QVariant, QDir, QSize, QUrl
 from qgis.PyQt.QtXml import QDomDocument
+from PyQt5.QtPrintSupport import QPrinter
 from pathlib import Path
 from qgis.gui import *
 from datetime import datetime
@@ -333,6 +334,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)        
         self.pb_anal_pog_flood_buildings.clicked.connect(self.anal_pog_flood_buildings)
         self.pb_anal_pog_all_buildings.clicked.connect(self.anal_pog_all_buildings)
+        self.pb_anal_pdf_report.clicked.connect(self.anal_pdf_report)
         self.pb_report_crs.clicked.connect(self.report_crs)
         self.pb_report_encoding.clicked.connect(self.report_encoding)
         self.pb_report_unique_layer_sources.clicked.connect(self.report_unique_layer_sources)
@@ -4413,10 +4415,65 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         if sys.platform.startswith('win'):
             subprocess.Popen(['explorer', '/select,', os.path.normpath(path)])
         else:
-            from PyQt5.QtGui import QDesktopServices
-            from PyQt5.QtCore import QUrl
             QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
         self.report(f"Zapisano arkusz do: {path}")
+
+    def anal_pdf_report(self):
+        path, _ = QFileDialog.getSaveFileName(
+            None,
+            "Zapisz plik PDF",
+            "",
+            "PDF (*.pdf)"
+        )
+
+        if not path:
+            return
+
+        if not path.lower().endswith(".pdf"):
+            path += ".pdf"
+
+        report_buffer = []
+        original_report = self.report
+
+        def capture_report(text):
+            report_buffer.append(str(text))
+            original_report(text)
+
+        self.report = capture_report
+
+        try:
+            self.report("===== RAPORT ANALIZ =====")
+            self.report(f"Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            self.report("")
+
+            self.anal_fop_10km()
+            self.anal_adm()
+            self.anal_pig()
+            self.anal_wody()
+            self.anal_powodz()
+            self.anal_inne()
+            self.anal_oze()
+            self.anal_lasy()
+
+            self.report("===== KONIEC RAPORTU =====")
+
+        finally:
+            self.report = original_report
+
+        full_text = "\n".join(report_buffer)
+
+        printer = QPrinter()
+        printer.setOutputFormat(QPrinter.PdfFormat)
+        printer.setOutputFileName(path)
+
+        document = QTextDocument()
+        document.setPlainText(full_text)
+        document.print_(printer)
+        if sys.platform.startswith('win'):
+            subprocess.Popen(['explorer', '/select,', os.path.normpath(path)])
+        else:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
+        self.report(f"Zapisano raport PDF do: {path}")
 
 
 
