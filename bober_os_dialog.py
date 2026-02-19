@@ -4157,7 +4157,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Warstwa '{layer.name()}' nie jest warstwą wektorową.")
             return
 
-        if not layer.source().lower().endswith(".gpkg"):
+        if not layer.type() == QgsMapLayerType.VectorLayer and layer.storageType() == "GPKG":
             self.report(f"Warstwa '{layer.name()}' nie pochodzi z GeoPackage. Pomijam.")
             return
 
@@ -4196,8 +4196,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         project = QgsProject.instance()
         vector_layers = [
-            layer for layer in project.mapLayers().values()
-            if layer.type() == QgsMapLayerType.VectorLayer and layer.source().lower().endswith(".gpkg")
+            layer for layer in QgsProject.instance().mapLayers().values()
+            if (
+                layer.type() == QgsMapLayerType.VectorLayer
+                and layer.storageType() == "GPKG"
+            )
         ]
 
         layer_count_total = len(vector_layers)
