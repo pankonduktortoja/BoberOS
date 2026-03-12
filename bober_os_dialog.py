@@ -244,6 +244,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_act_pig.clicked.connect(self.act_pig_layers)
         self.pb_act_adm.clicked.connect(self.act_adm_layers)
         self.pb_act_oze.clicked.connect(self.act_oze_layers)
+        self.pb_act_zabytki.clicked.connect(self.act_zabytki_layers)
         self.fop_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
         self.fop_path.setFilter("Shapefile (*.shp)")
         self.pomniki_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
@@ -254,10 +255,13 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.adm_path.setFilter("GML file (*.gml)")
         self.oze_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
         self.oze_path.setFilter("GPKG file (*.gpkg)")
+        self.zabytki_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
+        self.zabytki_path.setFilter("GPKG file (*.gpkg)")  
         #IMPORT BUTTONS
         button_configs = {
             self.pb_import_fop: {"": ["DANE_AKTUALIZOWANE", "FOP"]},
             self.pb_import_pig: {"": ["DANE_AKTUALIZOWANE", "PIG"]},
+            self.pb_import_zabytki: {"": ["DANE_AKTUALIZOWANE", "ZABYTKI"]},
             self.pb_import_um: {"ADM_MorskieLinieBrzegowe.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
                 "ADM_MorskieWodyWewnetrzne.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
                 "ADM_PasOchronny.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
@@ -318,6 +322,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pb_import_external_filter.clicked.connect(self.import_external_filter)
         #ANALYSIS BUTTONS
         self.pb_anal_fop.clicked.connect(self.anal_fop)
+        self.pb_anal_zabytki.clicked.connect(self.anal_zabytki)
         self.pb_anal_adm.clicked.connect(self.anal_adm)
         self.pb_anal_pig.clicked.connect(self.anal_pig)
         self.pb_anal_wody.clicked.connect(self.anal_wody)
@@ -588,7 +593,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 layer.dataProvider().setEncoding("CP1250")
 
             src_fields = layer.fields()
-            drop = set(fields_per_rule.get(matched, []))
+            drop = set(fields_per_rule.get(matched, [])) if fields_per_rule else set()
             keep_idx = [i for i, f in enumerate(src_fields) if f.name() not in drop]
 
             geom_type = layer.wkbType()
@@ -959,6 +964,35 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report("Operacja zakończona.\n")
             QtWidgets.QApplication.processEvents()
         self.show_static()
+        
+    def act_zabytki_layers(self):
+        shp_list = QgsFileWidget.splitFilePaths(self.zabytki_path.filePath())
+        self.show_gif()
+
+        match_rules = {
+            "ZEA_Areal%": "ZABYTKI_WEZ_ARCH_POLIGON",
+            "ZEA_Linear%": "ZABYTKI_WEZ_ARCH_LINIA",
+            "ZEA_Point%": "ZABYTKI_WEZ_ARCH_PUNKT",
+            "ZEN_Areal%": "ZABYTKI_WEZ_NIER_POLIGON",
+            "ZEN_Linear%": "ZABYTKI_WEZ_NIER_LINIA",
+            "ZEN_Point%": "ZABYTKI_WEZ_NIER_PUNKT",
+            "ZRA_Areal%": "ZABYTKI_REJ_ARCH_POLIGON",
+            "ZRA_Linear%": "ZABYTKI_REJ_ARCH_LINIA",
+            "ZRA_Point%": "ZABYTKI_REJ_ARCH_PUNKT",
+            "ZRN_Areal%": "ZABYTKI_REJ_NIER_POLIGON",
+            "ZRN_Linear%": "ZABYTKI_REJ_NIER_LINIA",
+            "ZRN_Point%": "ZABYTKI_REJ_NIER_PUNKT",
+        }
+
+        self.process_vector_files(
+            input_paths=shp_list,
+            match_rules=match_rules,
+            fields_per_rule=None,
+            target_crs="EPSG:2180",
+            subfolder=["DANE_AKTUALIZOWANE", "ZABYTKI"]
+        )
+
+        self.show_static()
 
     def build_filter_geometry(self) -> QgsGeometry | None:
         layer = self.layer_area_2180()
@@ -1130,7 +1164,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         self.import_layers(files, self.project_path.filePath(), suffix)
         self.show_static()
-
+        
     def import_all_powodz_data(self):
         self.show_gif()
         base = os.path.join(self.resource_path.filePath(), "DANE_POWODZ")
@@ -2695,6 +2729,49 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.report("Analiza OZE zakończona.\n")
         self.show_static()
 
+    def anal_zabytki(self):
+        self.show_gif()
+        self.report("Analiza ZABYTKI - start")
+        QtWidgets.QApplication.processEvents()
+
+        filter_geom = self.build_filter_geometry()
+        if not filter_geom:
+            self.report("Brak funkcji w layer_area.")
+            return
+
+        base = self.resource_path.filePath()
+        layers = {
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_REJ_ARCH_LINIA.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_REJ_ARCH_POLIGON.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_REJ_ARCH_PUNKT.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_REJ_NIER_LINIA.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_REJ_NIER_POLIGON.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_REJ_NIER_PUNKT.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_WEZ_ARCH_LINIA.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_WEZ_ARCH_POLIGON.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_WEZ_ARCH_PUNKT.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_WEZ_NIER_LINIA.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_WEZ_NIER_POLIGON.gpkg": None,
+            "DANE_AKTUALIZOWANE/ZABYTKI/ZABYTKI_WEZ_NIER_PUNKT.gpkg": None,
+        }
+
+        total = len(layers)
+        for i, (rel, fields) in enumerate(layers.items(), 1):
+            path = os.path.join(base, rel)
+            name = os.path.basename(path)
+
+            if not os.path.exists(path):
+                self.report(f"{name}: brak pliku.")
+                continue
+
+            layer = QgsVectorLayer(path, name, "ogr")
+            self.report(f"{name}:")
+            count = self.report_intersections(layer, filter_geom, fields)
+            self.report(f"Liczba: {count}\n")
+
+        self.report("Analiza ZABYTKI zakończona.\n")
+        self.show_static()
+
     def anal_lasy(self):
         self.show_gif()
         self.report("Analiza LASY - start")
@@ -3310,7 +3387,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         split = fix_geoms(processing.run(
             "native:intersection",
-            {"INPUT": bud_na_dzialkach, "OVERLAY": dzialki_kwal, "OUTPUT": "memory:"},
+            {
+                "INPUT": bud_na_dzialkach,
+                "OVERLAY": dzialki_kwal,
+                "INPUT_FIELDS": [],
+                "OVERLAY_FIELDS": [],
+                "OVERLAY_PREFIX": "dz_",
+                "OUTPUT": "memory:"
+            },
             feedback=feedback
         )["OUTPUT"])
 
@@ -3323,13 +3407,23 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
         idx_pb = split.fields().indexOf("powbud")
         idx_pc = split.fields().indexOf("powcalk")
-        idx_k = split.fields().indexOf("LICZBAKONDYGNACJI")
-
+        idx_k = -1
+        for i, field in enumerate(split.fields()):
+            if field.name().upper().startswith("LICZBAKOND") or field.name().upper().startswith("LICZ_KONDY"):
+                idx_k = i
+                break
+        
+        if idx_k == -1:
+            self.report("Brak pola LICZBAKONDYGNACJI w warstwie budynków. Wybierz warstwę BDOT importowaną z BoberOS lub warstwy .gml - nie .shp!")
+            self.show_static()
+            raise RuntimeError("Brak wymaganego pola LICZBAKONDYGNACJI")
+            
         updates = {}
         for f in split.getFeatures():
             g = f.geometry()
             a = g.area() if g and not g.isEmpty() else 0.0
-            k = f[idx_k] or 0
+            val = f[idx_k]
+            k = val if val not in (None, "") else 0
             updates[f.id()] = {idx_pb: a, idx_pc: a * k}
         split.dataProvider().changeAttributeValues(updates)
         split.commitChanges()
@@ -4471,6 +4565,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.anal_powodz()
             self.anal_inne()
             self.anal_oze()
+            self.anal_zabytki()
             self.anal_lasy()
 
             self.report("===== KONIEC RAPORTU =====")
