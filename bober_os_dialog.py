@@ -296,7 +296,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.pb_import_pkp_halas_ln: {"INNE_PKP_halas_imisja_LN.gpkg": ["DANE_INNE"]},
             self.pb_import_torfowiska_alk: {"INNE_Torfowiska_alkaliczne.gpkg": ["DANE_INNE"]},
             self.pb_import_korytarze: {"INNE_Korytarze_ekologiczne.gpkg": ["DANE_INNE"]},
-            self.pb_import_lasy: {"INNE_Lasy_BDL.gpkg": ["DANE_INNE"]}
+            self.pb_import_lasy: {"INNE_Lasy_BDL.gpkg": ["DANE_INNE"]},
+            self.pb_import_audyt_prio: {"INNE_AUDYT_PRIO.gpkg": ["DANE_INNE"]}
         }
         for btn, config in button_configs.items():
             btn.clicked.connect(lambda _, c=config: self.import_filtered_layers(c))
@@ -323,6 +324,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         #ANALYSIS BUTTONS
         self.pb_anal_fop.clicked.connect(self.anal_fop)
         self.pb_anal_zabytki.clicked.connect(self.anal_zabytki)
+        self.pb_anal_audyt.clicked.connect(self.anal_audyt)
         self.pb_anal_adm.clicked.connect(self.anal_adm)
         self.pb_anal_pig.clicked.connect(self.anal_pig)
         self.pb_anal_wody.clicked.connect(self.anal_wody)
@@ -2630,6 +2632,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             "DANE_INNE/INNE_Torfowiska_alkaliczne.gpkg": None,
             "DANE_INNE/INNE_Wos_1999_regiony_klimatyczne.gpkg": ["numer", "nazwa"],
             "DANE_INNE/INNE_Korytarze_ekologiczne.gpkg": ["nazwa"],
+            "DANE_INNE/INNE_AUDYT_PRIO.gpkg": ["Kod", "Nazwa"],
         }
 
         bbox = filter_geom.boundingBox()
@@ -2727,6 +2730,45 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Liczba: {count}\n")
 
         self.report("Analiza OZE zakończona.\n")
+        self.show_static()
+
+    def anal_audyt(self):
+        self.show_gif()
+        self.report("Analiza AUDYT - start")
+        QtWidgets.QApplication.processEvents()
+
+        filter_geom = self.build_filter_geometry()
+        base = self.resource_path.filePath()
+
+        if not filter_geom:
+            self.report("Brak layer_area.")
+            return
+
+        layers = {
+            "DANE_INNE/INNE_AUDYT_PRIO.gpkg": ["Kod", "Nazwa"],
+        }
+
+        total = len(layers)
+        for i, (rel, fields) in enumerate(layers.items(), 1):
+            path = os.path.join(base, rel)
+            name = os.path.basename(path)
+
+            if fields is None:
+                self.report(
+                    f"{name}: {'istnieje' if os.path.exists(path) else 'NIE istnieje'}."
+                )
+                continue
+
+            if not os.path.exists(path):
+                self.report(f"{name}: brak pliku.")
+                continue
+
+            layer = QgsVectorLayer(path, name, "ogr")
+            self.report(f"{name}:")
+            count = self.report_intersections(layer, filter_geom, fields)
+            self.report(f"Liczba: {count}\n")
+
+        self.report("Analiza AUDYT zakończona.\n")
         self.show_static()
 
     def anal_zabytki(self):
