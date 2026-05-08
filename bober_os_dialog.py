@@ -53,7 +53,6 @@ from qgis.utils import iface
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'bober_os_dialog_base.ui'))
 
-
 class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
     BDOT_LAYERS = {
         "OT_SWRS": "BDOT_siec_wod_rzeka_strumien",
@@ -262,6 +261,51 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             }
         for button, slot in button_connections.items():
             button.clicked.connect(slot)
+
+        #IMPORT BUTTONS
+        button_configs = {
+            self.pb_import_fop: {"": ["DANE_AKTUALIZOWANE", "FOP"]},
+            self.pb_import_pig: {"": ["DANE_AKTUALIZOWANE", "PIG"]},
+            self.pb_import_zabytki: {"": ["DANE_AKTUALIZOWANE", "ZABYTKI"]},
+            self.pb_import_um: {"ADM_MorskieLinieBrzegowe.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
+                "ADM_MorskieWodyWewnetrzne.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
+                "ADM_PasOchronny.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
+                "ADM_PasTechniczny.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
+            self.pb_import_obreb: {"ADM_ObrebyEwidencyjne.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
+            self.pb_import_gmina: {"ADM_Gminy.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
+            self.pb_import_powiat: {"ADM_Powiaty.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
+            self.pb_import_wojewodztwo: {"ADM_Wojewodztwa.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
+            self.pb_import_nadlesnictwo: {"ADM_Nadlesnictwa.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
+            self.pb_import_zz: {"ADM_ZarzadyZlewni.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
+            self.pb_import_oze: {"": ["DANE_AKTUALIZOWANE", "OZE"]},
+            self.pb_import_jcwpd: {"WODY_JCWPd.gpkg": ["DANE_PGW_GZWP"]},
+            self.pb_import_gzwp: {"WODY_GZWP.gpkg": ["DANE_PGW_GZWP"]},
+            self.pb_import_jcwprz: {"WODY_Zlewnie_JCWP_rzeczne.gpkg": ["DANE_PGW_GZWP"]},
+            self.pb_import_jcwpj: {"WODY_Zlewnie_JCWP_jeziorne.gpkg": ["DANE_PGW_GZWP"]},
+            self.pb_import_jcwpprzej: {"WODY_Zlewnie_JCWP_przejsciowe.gpkg": ["DANE_PGW_GZWP"]},
+            self.pb_import_jcwpprzyb: {"WODY_Zlewnie_JCWP_przybrzezne.gpkg": ["DANE_PGW_GZWP"]},
+            self.pb_import_jcwpzbior: {"WODY_Zlewnie_JCWP_zbiornikowe.gpkg": ["DANE_PGW_GZWP"]},
+            self.pb_import_jcwppozos: {"WODY_JCWP_pozostale.gpkg": ["DANE_PGW_GZWP"]},
+            self.pb_import_powodz_rzeka10: {"POWODZ_rzeka_10.gpkg": ["DANE_POWODZ"]},
+            self.pb_import_powodz_rzeka100: {"POWODZ_rzeka_100.gpkg": ["DANE_POWODZ"]},
+            self.pb_import_powodz_rzeka500: {"POWODZ_rzeka_500.gpkg": ["DANE_POWODZ"]},
+            self.pb_import_powodz_rzekaWZ: {"POWODZ_rzeka_WZ.gpkg": ["DANE_POWODZ"]},
+            self.pb_import_powodz_morze100: {"POWODZ_morze_100.gpkg": ["DANE_POWODZ"]},
+            self.pb_import_powodz_morze500: {"POWODZ_morze_500.gpkg": ["DANE_POWODZ"]},
+            self.pb_import_powodz_morzeWZ: {"POWODZ_morze_WZ.gpkg": ["DANE_POWODZ"]},
+            self.pb_import_skorowidze: {"INNE_Skorowidz50k_92.gpkg": ["DANE_INNE"]},
+            self.pb_import_fizgeo: {"INNE_Mezoregiony.gpkg": ["DANE_INNE"]},
+            self.pb_import_roslinnosc: {"INNE_Potencjalna_roslinnosc_naturalna.gpkg": ["DANE_INNE"]},
+            self.pb_import_reg_klim: {"INNE_Wos_1999_regiony_klimatyczne.gpkg": ["DANE_INNE"]},
+            self.pb_import_pkp_halas_ldwn: {"INNE_PKP_halas_imisja_LDWN.gpkg": ["DANE_INNE"]},
+            self.pb_import_pkp_halas_ln: {"INNE_PKP_halas_imisja_LN.gpkg": ["DANE_INNE"]},
+            self.pb_import_torfowiska_alk: {"INNE_Torfowiska_alkaliczne.gpkg": ["DANE_INNE"]},
+            self.pb_import_korytarze: {"INNE_Korytarze_ekologiczne.gpkg": ["DANE_INNE"]},
+            self.pb_import_lasy: {"INNE_Lasy_BDL.gpkg": ["DANE_INNE"]},
+            self.pb_import_audyt_prio: {"INNE_AUDYT_PRIO.gpkg": ["DANE_INNE"]}
+        }
+        for btn, config in button_configs.items():
+            btn.clicked.connect(lambda _, c=config: self.import_filtered_layers(c)) 
             
         #TREEVIEWS + MODELS
         self.fs_model = QFileSystemModel(self)
@@ -315,51 +359,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         for widget, file_filter in file_path_configs.items():
             widget.setStorageMode(QgsFileWidget.GetMultipleFiles)
             widget.setFilter(file_filter)
-         
-        #IMPORT BUTTONS
-        button_configs = {
-            self.pb_import_fop: {"": ["DANE_AKTUALIZOWANE", "FOP"]},
-            self.pb_import_pig: {"": ["DANE_AKTUALIZOWANE", "PIG"]},
-            self.pb_import_zabytki: {"": ["DANE_AKTUALIZOWANE", "ZABYTKI"]},
-            self.pb_import_um: {"ADM_MorskieLinieBrzegowe.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
-                "ADM_MorskieWodyWewnetrzne.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
-                "ADM_PasOchronny.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"],
-                "ADM_PasTechniczny.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
-            self.pb_import_obreb: {"ADM_ObrebyEwidencyjne.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
-            self.pb_import_gmina: {"ADM_Gminy.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
-            self.pb_import_powiat: {"ADM_Powiaty.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
-            self.pb_import_wojewodztwo: {"ADM_Wojewodztwa.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
-            self.pb_import_nadlesnictwo: {"ADM_Nadlesnictwa.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
-            self.pb_import_zz: {"ADM_ZarzadyZlewni.gpkg": ["DANE_AKTUALIZOWANE", "ADMINISTRACYJNE"]},
-            self.pb_import_oze: {"": ["DANE_AKTUALIZOWANE", "OZE"]},
-            self.pb_import_jcwpd: {"WODY_JCWPd.gpkg": ["DANE_PGW_GZWP"]},
-            self.pb_import_gzwp: {"WODY_GZWP.gpkg": ["DANE_PGW_GZWP"]},
-            self.pb_import_jcwprz: {"WODY_Zlewnie_JCWP_rzeczne.gpkg": ["DANE_PGW_GZWP"]},
-            self.pb_import_jcwpj: {"WODY_Zlewnie_JCWP_jeziorne.gpkg": ["DANE_PGW_GZWP"]},
-            self.pb_import_jcwpprzej: {"WODY_Zlewnie_JCWP_przejsciowe.gpkg": ["DANE_PGW_GZWP"]},
-            self.pb_import_jcwpprzyb: {"WODY_Zlewnie_JCWP_przybrzezne.gpkg": ["DANE_PGW_GZWP"]},
-            self.pb_import_jcwpzbior: {"WODY_Zlewnie_JCWP_zbiornikowe.gpkg": ["DANE_PGW_GZWP"]},
-            self.pb_import_jcwppozos: {"WODY_JCWP_pozostale.gpkg": ["DANE_PGW_GZWP"]},
-            self.pb_import_powodz_rzeka10: {"POWODZ_rzeka_10.gpkg": ["DANE_POWODZ"]},
-            self.pb_import_powodz_rzeka100: {"POWODZ_rzeka_100.gpkg": ["DANE_POWODZ"]},
-            self.pb_import_powodz_rzeka500: {"POWODZ_rzeka_500.gpkg": ["DANE_POWODZ"]},
-            self.pb_import_powodz_rzekaWZ: {"POWODZ_rzeka_WZ.gpkg": ["DANE_POWODZ"]},
-            self.pb_import_powodz_morze100: {"POWODZ_morze_100.gpkg": ["DANE_POWODZ"]},
-            self.pb_import_powodz_morze500: {"POWODZ_morze_500.gpkg": ["DANE_POWODZ"]},
-            self.pb_import_powodz_morzeWZ: {"POWODZ_morze_WZ.gpkg": ["DANE_POWODZ"]},
-            self.pb_import_skorowidze: {"INNE_Skorowidz50k_92.gpkg": ["DANE_INNE"]},
-            self.pb_import_fizgeo: {"INNE_Mezoregiony.gpkg": ["DANE_INNE"]},
-            self.pb_import_roslinnosc: {"INNE_Potencjalna_roslinnosc_naturalna.gpkg": ["DANE_INNE"]},
-            self.pb_import_reg_klim: {"INNE_Wos_1999_regiony_klimatyczne.gpkg": ["DANE_INNE"]},
-            self.pb_import_pkp_halas_ldwn: {"INNE_PKP_halas_imisja_LDWN.gpkg": ["DANE_INNE"]},
-            self.pb_import_pkp_halas_ln: {"INNE_PKP_halas_imisja_LN.gpkg": ["DANE_INNE"]},
-            self.pb_import_torfowiska_alk: {"INNE_Torfowiska_alkaliczne.gpkg": ["DANE_INNE"]},
-            self.pb_import_korytarze: {"INNE_Korytarze_ekologiczne.gpkg": ["DANE_INNE"]},
-            self.pb_import_lasy: {"INNE_Lasy_BDL.gpkg": ["DANE_INNE"]},
-            self.pb_import_audyt_prio: {"INNE_AUDYT_PRIO.gpkg": ["DANE_INNE"]}
-        }
-        for btn, config in button_configs.items():
-            btn.clicked.connect(lambda _, c=config: self.import_filtered_layers(c))  
 
     def report(self, msg):
         self.tbConsole.append(msg)
@@ -2255,7 +2254,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report("Brak funkcji w layer_area lub buforze.")
             return
 
-        resource_base = self.resource_path.filePath()
+        base = self.resource_path.filePath()
 
         layers = {
             "DANE_AKTUALIZOWANE/FOP/FOP_ObszaryChronionegoKrajobrazu.gpkg": ["nazwa"],
@@ -2276,7 +2275,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         engine.prepareGeometry()
 
         for rel_path, fields in layers.items():
-            abs_path = os.path.join(resource_base, rel_path)
+            abs_path = os.path.join(base, rel_path)
             self.report(f"\nWarstwa: {rel_path}")
 
             if not os.path.exists(abs_path):
@@ -2321,7 +2320,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def anal_fop_10km(self):
         self.show_gif()
-
         self.report("Analiza FOP 10 km - start")
         QtWidgets.QApplication.processEvents()
 
@@ -2349,8 +2347,8 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         engine_area = QgsGeometry.createGeometryEngine(area_geom.constGet())
         engine_area.prepareGeometry()
 
-        resource_base = self.resource_path.filePath()
-        if not resource_base:
+        base = self.resource_path.filePath()
+        if not base:
             self.report("Brak ustawionej ścieżki do zasobów.")
             return
 
@@ -2388,7 +2386,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             return "północ"
 
         for rel_path, (prefix, fields) in layers.items():
-            abs_path = os.path.join(resource_base, rel_path)
+            abs_path = os.path.join(base, rel_path)
             layer_name = os.path.basename(rel_path)
 
             if not os.path.exists(abs_path):
@@ -2432,13 +2430,10 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 else:
                     try:
                         pt = g.centroid().asPoint()
-                        # najpierw znajdź najbliższy punkt na granicy obszaru
                         _, p_area, _, _ = area_geom.closestSegmentWithContext(pt)
-                        # potem najbliższy punkt na granicy obiektu względem tego punktu
                         _, p_obj, _, _ = g.closestSegmentWithContext(p_area)
 
                         if p_area and p_obj:
-                            # azymut od granicy obszaru do obiektu
                             az = p_area.azimuth(p_obj)
                         else:
                             az = 0
@@ -2626,7 +2621,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report("Brak funkcji w layer_area lub buforze.")
             return
 
-        resource_base = self.resource_path.filePath()
+        base = self.resource_path.filePath()
 
         layers = {
             "DANE_INNE/INNE_Mezoregiony.gpkg": ["k_MEZO", "n_MEZO"],
@@ -2644,7 +2639,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         engine.prepareGeometry()
 
         for rel_path, fields in layers.items():
-            abs_path = os.path.join(resource_base, rel_path)
+            abs_path = os.path.join(base, rel_path)
             self.report(f"\nWarstwa: {rel_path}")
 
             if not os.path.exists(abs_path):
@@ -2828,9 +2823,9 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report("Brak funkcji w layer_area lub buforze.")
             return
 
-        resource_base = self.resource_path.filePath()
+        base = self.resource_path.filePath()
         rel_path = "DANE_INNE/INNE_Lasy_BDL.gpkg"
-        abs_path = os.path.join(resource_base, rel_path)
+        abs_path = os.path.join(base, rel_path)
 
         if not os.path.exists(abs_path):
             self.report("Plik nie istnieje.")
@@ -4604,6 +4599,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report(f"Data: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             self.report("")
 
+            self.anal_fop()
             self.anal_fop_10km()
             self.anal_adm()
             self.anal_pig()
@@ -4613,6 +4609,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.anal_oze()
             self.anal_zabytki()
             self.anal_lasy()
+            self.anal_audyt()
 
             self.report("===== KONIEC RAPORTU =====")
 
