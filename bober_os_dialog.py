@@ -110,55 +110,50 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         super(BoberOSDialog, self).__init__(parent)
         self.iface = iface
         self.setupUi(self)
-        self.init_ui_color_customization()
-        
-        self.setWindowFlags(Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint)
-        
+        self.init_ui_color_customization()        
+        self.setWindowFlags(Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint)        
         for btn in self.findChildren(QtWidgets.QPushButton):
             btn.setDefault(False)
             btn.setAutoDefault(False)
-
-        self.pbClearConsole.clicked.connect(self.run_clear_console)
-
-        self.project_path.setStorageMode(QgsFileWidget.GetFile)
-        self.project_path.setFilter("GeoPackage files (*.gpkg)")
         
+        #POPULATE COLUMNS
         self.mpzp_layer.layerChanged.connect(self.populate_mpzp_symbol_columns)
-        self.numeracja_layer.layerChanged.connect(self.populate_numeracja_unikalna_columns)
+        self.numeracja_layer.layerChanged.connect(self.populate_numeracja_unikalna_columns)        
+        self.import_external_filter_path.fileChanged.connect(self.populate_import_external_filter_columns)
         
-        
+        #SAVING PATHS AND VALUES
+        self.project_path.setStorageMode(QgsFileWidget.GetFile)
+        self.project_path.setFilter("GeoPackage files (*.gpkg)")        
         self.project_path.fileChanged.connect(lambda path: self.save_setting("project_path", path))
         saved_path = self.load_setting("project_path")
         if saved_path:
             self.project_path.setFilePath(saved_path)
-                        
         saved_buffer = self.load_setting("buffer_value")
         if saved_buffer:
             self.sbBufferValue.setValue(int(saved_buffer))
         self.sbBufferValue.valueChanged.connect(self.update_buffer_value)
         self.update_buffer_value(self.sbBufferValue.value())
         
+        #LAYER FILTERS
+        polygon_proxy_filter = QgsMapLayerProxyModel.PolygonLayer
         self.wind_area.setFilters(
-            QgsMapLayerProxyModel.PolygonLayer |
-            QgsMapLayerProxyModel.PointLayer
-        )
-        self.mpzp_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
-        self.pog_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
-        self.numeracja_layer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
-        
-        
-        self.pb_upgrade_plugin.clicked.connect(self.upgrade_plugin)
-        #LAYER AREA
-        self.layer_area.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+            polygon_proxy_filter | QgsMapLayerProxyModel.PointLayer)
+        for widget in (
+            self.mpzp_layer,
+            self.pog_layer,
+            self.numeracja_layer,
+            self.layer_area,
+        ):
+            widget.setFilters(polygon_proxy_filter)
         self.layer_area.setCurrentIndex(-1)
-        #RESOURCE PATHS
+        
+        #RESOURCE PATHS + UPDATE WARNINGS
         self.resource_path.setStorageMode(QgsFileWidget.GetDirectory)
         self.resource_path.setFilePath("")
         self.resource_path.fileChanged.connect(lambda path: self.save_setting("resource_path", path))
         saved_resource = self.load_setting("resource_path")
         if saved_resource:
             self.resource_path.setFilePath(saved_resource)
-
         if not saved_resource or not os.path.isdir(saved_resource):
             QMessageBox.warning(
                 self.iface.mainWindow(),
@@ -167,25 +162,106 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         else:
             source_folder_date = Path(saved_resource).parent / "WTYCZKI" / "bober_os"
             resource_file = source_folder_date / "bober_os_dialog.py"
-
             if resource_file.exists() and resource_file.is_file():
                 resource_mtime = resource_file.stat().st_mtime
                 newest_date = datetime.fromtimestamp(resource_mtime)
-
                 self.label_plugin_date.setText(
-                    f"Ostatnia aktualizacja wtyczki: {newest_date.strftime('%Y-%m-%d %H:%M:%S')}"
-                )
-
+                    f"Ostatnia aktualizacja wtyczki: {newest_date.strftime('%Y-%m-%d %H:%M:%S')}")
                 plugin_file = Path(__file__).resolve()
-
                 if plugin_file.stat().st_mtime < resource_mtime:
                     QMessageBox.warning(
                         self.iface.mainWindow(),
                         f"Uwaga! Nieaktualna wtyczka - ostatnia aktualizacja {newest_date.strftime('%Y-%m-%d %H:%M:%S')}",
-                        "Zaktualizuj wtyczkę guzikiem, w pierwszej zakładce, żeby mieć fajne rzeczy. Dodane funkcjonalności widoczne są w konsoli (okienko po prawej stronie)."
-                    )
+                        "Zaktualizuj wtyczkę guzikiem, w pierwszej zakładce, żeby mieć fajne rzeczy. Dodane funkcjonalności widoczne są w konsoli (okienko po prawej stronie).")
             else:
                 self.report("Nie wyznaczono ścieżki do zasobu.")
+
+        #CONNECTION BUTTONS
+        button_connections = {
+            #IMPORT ALL BUTTONS
+            self.pb_import_act_all: self.import_all_updated_data,
+            self.pb_import_wody_all: self.import_all_wody_data,
+            self.pb_import_powodz_all: self.import_all_powodz_data,
+            
+            #MISC BUTTONS
+            self.pb_layout_area: self.layout_area_gen,
+            self.pb_upgrade_plugin: self.upgrade_plugin,
+            self.pbClearConsole: self.run_clear_console,
+            self.pb_reset_fid_values: self.reset_fid_values,
+            self.pb_numeracja_pol: self.numeracja_pol,
+            self.pb_numeracja_unikalna: self.numeracja_unikalna,
+            self.pb_import_external: self.import_external,
+            self.pb_import_external_filter: self.import_external_filter,
+            
+            #POG BUTTONS
+            self.pb_pog_numeracja: self.pog_numeracja,      
+            self.pb_pog_profil: self.pog_korekta_profilu,
+            self.pb_pog_spacje: self.pog_korekta_spacje,
+            self.pb_pog_zgodnosc: self.pog_zgodnosc,
+            self.pb_pog_to_xslx: self.pog_to_xslx,
+            
+            #TREEVIEW MAP MODELS BUTTONS
+            self.pb_pg_tree_load: self.load_pg_tree,
+            self.pb_pg_refresh: self.pg_refresh,
+            self.pb_pg_import: self.pg_import,
+            self.pb_pg_load: self.pg_load,
+            self.pb_pg_delete: self.pg_delete,
+            self.pb_pg_split: self.pg_split,
+            self.pb_pg_pound_replace: self.pg_pound_replace,
+            
+            #STYLE MANAGER BUTTONS
+            self.pb_style_layer: self.apply_style_to_layer,
+            self.pb_apply_previous_style_to_layer: self.apply_previous_style_to_layer,
+            self.pb_export_active_layer_style: self.export_active_layer_style,
+            self.pb_style_save_single: self.style_save_single,
+            self.pb_style_save_all: self.style_save_all,
+            
+            #ACTUALIZE BUTTONS
+            self.pb_act_fop: self.act_fop_layers,
+            self.pb_act_pomniki: self.act_pomniki_layers,
+            self.pb_act_pig: self.act_pig_layers,
+            self.pb_act_adm: self.act_adm_layers,
+            self.pb_act_oze: self.act_oze_layers,
+            self.pb_act_zabytki: self.act_zabytki_layers,
+            
+            #ANALYSIS BUTTONS
+            self.pb_anal_fop: self.anal_fop,
+            self.pb_anal_zabytki: self.anal_zabytki,
+            self.pb_anal_audyt: self.anal_audyt,
+            self.pb_anal_adm: self.anal_adm,
+            self.pb_anal_pig: self.anal_pig,
+            self.pb_anal_wody: self.anal_wody,
+            self.pb_anal_powodz: self.anal_powodz,
+            self.pb_anal_inne: self.anal_inne,
+            self.pb_anal_oze: self.anal_oze,
+            self.pb_anal_fop_10km: self.anal_fop_10km,
+            self.pb_anal_lasy: self.anal_lasy,
+            self.pb_anal_wind_pobliska: self.anal_wind_pobliska,
+            self.pb_anal_wind_build_700: self.anal_wind_build_700,
+            self.pb_anal_wind_build_700_rad: self.anal_wind_build_700_rad,
+            self.pb_anal_wind_elect: self.anal_wind_elect,        
+            self.pb_anal_pog_flood_buildings: self.anal_pog_flood_buildings,
+            self.pb_anal_pog_all_buildings: self.anal_pog_all_buildings,
+            self.pb_anal_pdf_report: self.anal_pdf_report,
+            
+            #GPKG MANAGER BUTTONS
+            self.pb_gpkg_load_layers: self.load_layers,
+            self.pb_gpkg_delete_layers: self.delete_selected_layers,
+            self.pb_gpkg_rename_layers: self.rename_selected_layer,
+            self.pb_gpkg_vacuum_layers: self.vacuum_gpkg,
+            
+            #REPORT BUTTONS
+            self.pb_report_crs: self.report_crs,
+            self.pb_report_encoding: self.report_encoding,
+            self.pb_report_unique_layer_sources: self.report_unique_layer_sources,
+            
+            #BDOT BUTTONS
+            self.pb_bdot_refresh: self.populate_bdot_table,
+            self.pb_bdot_import: self.import_selected_bdot_layers,
+            self.pb_bdot_uncheck: self.uncheck_all_bdot,
+            }
+        for button, slot in button_connections.items():
+            button.clicked.connect(slot)
             
         #TREEVIEWS + MODELS
         self.fs_model = QFileSystemModel(self)
@@ -193,13 +269,6 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         map_path = os.path.join(self.resource_path.filePath(), "DANE_MAPY_ZASADNICZE")
         self.tv_pg_import.setModel(self.fs_model)
         self.tv_pg_import.setRootIndex(self.fs_model.index(map_path))
-        self.pb_pg_tree_load.clicked.connect(self.load_pg_tree)
-        self.pb_pg_refresh.clicked.connect(self.pg_refresh)
-        self.pb_pg_import.clicked.connect(self.pg_import)
-        self.pb_pg_load.clicked.connect(self.pg_load)
-        self.pb_pg_delete.clicked.connect(self.pg_delete)
-        self.pb_pg_split.clicked.connect(self.pg_split)
-        self.pb_pg_pound_replace.clicked.connect(self.pg_pound_replace)
         self.tv_pg_import.header().setStretchLastSection(False)
         self.tv_pg_import.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         #STYLE TREEVIEW + APPLY
@@ -212,19 +281,15 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         self.style_model.setNameFilters([])
         self.tv_style.setModel(self.style_model)
         self.tv_style.setRootIndex(self.style_model.index(self.style_root_path))
-        self.tv_style.setColumnHidden(1, True)
-        self.tv_style.setColumnHidden(2, True)
-        self.tv_style.setColumnHidden(3, True)
+        for col in (1, 2, 3):
+            self.tv_style.setColumnHidden(col, True)
         self.tv_style.header().setStretchLastSection(False)
         self.tv_style.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.cb_style_layer.layerChanged.connect(self.update_style_filter)
         self.tv_style.selectionModel().selectionChanged.connect(self.update_style_button)
-        self.pb_style_layer.clicked.connect(self.apply_style_to_layer)
         self.pb_style_layer.setEnabled(False)
         self.style_model.setNameFilters(["__nothing__"])
         self._previous_layer_styles = {}
-        self.pb_apply_previous_style_to_layer.clicked.connect(self.apply_previous_style_to_layer)
-        self.pb_export_active_layer_style.clicked.connect(self.export_active_layer_style)
         #POSTGRES CREDENTIALS
         self.le_pg_username.textChanged.connect(lambda text: self.save_setting("pg_username", text))
         self.le_pg_password.textChanged.connect(lambda text: self.save_setting("pg_password", text))
@@ -238,25 +303,19 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         saved_port = self.load_setting("pg_port")
         if saved_port:
             self.le_pg_port.setText(saved_port)
-        
-        self.pb_act_fop.clicked.connect(self.act_fop_layers)
-        self.pb_act_pomniki.clicked.connect(self.act_pomniki_layers)
-        self.pb_act_pig.clicked.connect(self.act_pig_layers)
-        self.pb_act_adm.clicked.connect(self.act_adm_layers)
-        self.pb_act_oze.clicked.connect(self.act_oze_layers)
-        self.pb_act_zabytki.clicked.connect(self.act_zabytki_layers)
-        self.fop_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
-        self.fop_path.setFilter("Shapefile (*.shp)")
-        self.pomniki_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
-        self.pomniki_path.setFilter("GPKG (*.gpkg)")
-        self.pig_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
-        self.pig_path.setFilter("Shapefile (*.shp)")
-        self.adm_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
-        self.adm_path.setFilter("GML file (*.gml)")
-        self.oze_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
-        self.oze_path.setFilter("GPKG file (*.gpkg)")
-        self.zabytki_path.setStorageMode(QgsFileWidget.GetMultipleFiles)
-        self.zabytki_path.setFilter("GPKG file (*.gpkg)")  
+
+        #PATH FILTERS
+        file_path_configs = {
+            self.fop_path: "Shapefile (*.shp)",
+            self.pomniki_path: "GPKG (*.gpkg)",
+            self.pig_path: "Shapefile (*.shp)",
+            self.adm_path: "GML file (*.gml)",
+            self.oze_path: "GPKG file (*.gpkg)",
+            self.zabytki_path: "GPKG file (*.gpkg)",}
+        for widget, file_filter in file_path_configs.items():
+            widget.setStorageMode(QgsFileWidget.GetMultipleFiles)
+            widget.setFilter(file_filter)
+         
         #IMPORT BUTTONS
         button_configs = {
             self.pb_import_fop: {"": ["DANE_AKTUALIZOWANE", "FOP"]},
@@ -300,60 +359,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.pb_import_audyt_prio: {"INNE_AUDYT_PRIO.gpkg": ["DANE_INNE"]}
         }
         for btn, config in button_configs.items():
-            btn.clicked.connect(lambda _, c=config: self.import_filtered_layers(c))
-
-        self.pb_import_act_all.clicked.connect(self.import_all_updated_data)
-        self.pb_import_wody_all.clicked.connect(self.import_all_wody_data)
-        self.pb_import_powodz_all.clicked.connect(self.import_all_powodz_data)
-        self.pb_layout_area.clicked.connect(self.layout_area_gen)
-        self.pb_pog_numeracja.clicked.connect(self.pog_numeracja)
-        self.pb_pog_profil.clicked.connect(self.pog_korekta_profilu)
-        self.pb_pog_spacje.clicked.connect(self.pog_korekta_spacje)
-        self.pb_pog_zgodnosc.clicked.connect(self.pog_zgodnosc)
-        self.pb_pog_to_xslx.clicked.connect(self.pog_to_xslx)
-        #SAVE STYLES TO GPKG
-        self.pb_style_save_single.clicked.connect(self.style_save_single)
-        self.pb_style_save_all.clicked.connect(self.style_save_all)
-        
-        self.pb_reset_fid_values.clicked.connect(self.reset_fid_values)
-        self.pb_numeracja_pol.clicked.connect(self.numeracja_pol)
-        self.pb_numeracja_unikalna.clicked.connect(self.numeracja_unikalna)
-        self.pb_import_external.clicked.connect(self.import_external)
-        self.import_external_filter_path.fileChanged.connect(self.populate_import_external_filter_columns)
-        self.pb_import_external_filter.clicked.connect(self.import_external_filter)
-        #ANALYSIS BUTTONS
-        self.pb_anal_fop.clicked.connect(self.anal_fop)
-        self.pb_anal_zabytki.clicked.connect(self.anal_zabytki)
-        self.pb_anal_audyt.clicked.connect(self.anal_audyt)
-        self.pb_anal_adm.clicked.connect(self.anal_adm)
-        self.pb_anal_pig.clicked.connect(self.anal_pig)
-        self.pb_anal_wody.clicked.connect(self.anal_wody)
-        self.pb_anal_powodz.clicked.connect(self.anal_powodz)
-        self.pb_anal_inne.clicked.connect(self.anal_inne)
-        self.pb_anal_oze.clicked.connect(self.anal_oze)
-        self.pb_anal_fop_10km.clicked.connect(self.anal_fop_10km)
-        self.pb_anal_lasy.clicked.connect(self.anal_lasy)
-        self.pb_anal_wind_pobliska.clicked.connect(self.anal_wind_pobliska)
-        self.pb_anal_wind_build_700.clicked.connect(self.anal_wind_build_700)
-        self.pb_anal_wind_build_700_rad.clicked.connect(self.anal_wind_build_700_rad)
-        self.pb_anal_wind_elect.clicked.connect(self.anal_wind_elect)        
-        self.pb_anal_pog_flood_buildings.clicked.connect(self.anal_pog_flood_buildings)
-        self.pb_anal_pog_all_buildings.clicked.connect(self.anal_pog_all_buildings)
-        self.pb_anal_pdf_report.clicked.connect(self.anal_pdf_report)
-        self.pb_report_crs.clicked.connect(self.report_crs)
-        self.pb_report_encoding.clicked.connect(self.report_encoding)
-        self.pb_report_unique_layer_sources.clicked.connect(self.report_unique_layer_sources)
-        #MANAGE GPKG BUTTONS        
-        self.pb_gpkg_load_layers.clicked.connect(self.load_layers)
-        self.pb_gpkg_delete_layers.clicked.connect(self.delete_selected_layers)
-        self.pb_gpkg_rename_layers.clicked.connect(self.rename_selected_layer)
-        self.pb_gpkg_vacuum_layers.clicked.connect(self.vacuum_gpkg)
-        #BDOT BUTTONS
-        self.pb_bdot_refresh.clicked.connect(self.populate_bdot_table)
-        self.pb_bdot_import.clicked.connect(self.import_selected_bdot_layers)
-        self.pb_bdot_uncheck.clicked.connect(self.uncheck_all_bdot)
-        
-        
+            btn.clicked.connect(lambda _, c=config: self.import_filtered_layers(c))  
 
     def report(self, msg):
         self.tbConsole.append(msg)
@@ -495,13 +501,11 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             target_crs,
             context
         )
-
         mem_layer = QgsVectorLayer(
             f"{QgsWkbTypes.displayString(src_layer.wkbType())}?crs=EPSG:2180",
             f"{src_layer.name()}_2180",
             "memory"
         )
-
         provider = mem_layer.dataProvider()
         provider.addAttributes(src_layer.fields())
         mem_layer.updateFields()
