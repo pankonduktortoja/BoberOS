@@ -150,7 +150,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>4</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab_10">
        <attribute name="title">
@@ -1660,69 +1660,96 @@ p, li { white-space: pre-wrap; }
             </widget>
            </item>
            <item>
+            <widget class="QLabel" name="label_37">
+             <property name="text">
+              <string>Analiza wskaźników urbanistycznych dla działek</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item>
             <layout class="QGridLayout" name="gridLayout_3">
              <property name="topMargin">
               <number>0</number>
              </property>
-             <item row="0" column="1">
-              <widget class="QPushButton" name="pb_anal_pog_flood_buildings">
-               <property name="text">
-                <string>Oblicz wskaźniki dla działek zagrożonych powodzią</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
+             <item row="2" column="1">
               <widget class="QPushButton" name="pb_anal_pog_all_buildings">
                <property name="text">
                 <string>Oblicz wskaźniki dla wszystkich działek</string>
                </property>
               </widget>
              </item>
-             <item row="0" column="0">
+             <item row="1" column="0">
               <widget class="QCheckBox" name="cb_use_pog_strefa">
                <property name="text">
                 <string>Uwzględnij przecięcia ze strefą planistyczną</string>
                </property>
               </widget>
              </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="pb_anal_pog_flood_buildings">
+               <property name="text">
+                <string>Oblicz wskaźniki dla działek zagrożonych powodzią</string>
+               </property>
+              </widget>
+             </item>
             </layout>
            </item>
            <item>
-            <widget class="QLabel" name="label_22">
+            <widget class="QLabel" name="label_38">
              <property name="text">
-              <string>Wybierz warstwę z terenami mpzp</string>
+              <string>Analiza zgnodności planu miejscowego z POG</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QgsMapLayerComboBox" name="mpzp_layer"/>
-           </item>
-           <item>
-            <widget class="QLabel" name="label_24">
-             <property name="text">
-              <string>Wybierz kolumnę z oznaczeniami terenów</string>
+            <layout class="QGridLayout" name="gridLayout_6">
+             <property name="topMargin">
+              <number>0</number>
              </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QComboBox" name="cb_mpzp_symbol_col"/>
-           </item>
-           <item>
-            <widget class="QLabel" name="label_23">
-             <property name="text">
-              <string>Wybierz warstwę ze strefami planistycznymi POG</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QgsMapLayerComboBox" name="pog_layer"/>
-           </item>
-           <item>
-            <widget class="QPushButton" name="pb_pog_zgodnosc">
-             <property name="text">
-              <string>Sprawdź zgodność planu miejscowego z POG</string>
-             </property>
-            </widget>
+             <item row="1" column="0">
+              <widget class="QgsMapLayerComboBox" name="mpzp_layer"/>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="cb_mpzp_symbol_col"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_23">
+               <property name="text">
+                <string>Wybierz warstwę ze strefami planistycznymi POG</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_22">
+               <property name="text">
+                <string>Wybierz warstwę z terenami mpzp</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLabel" name="label_24">
+               <property name="text">
+                <string>Wybierz kolumnę z oznaczeniami terenów</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QgsMapLayerComboBox" name="pog_layer"/>
+             </item>
+             <item row="3" column="1">
+              <widget class="QPushButton" name="pb_pog_zgodnosc">
+               <property name="text">
+                <string>Sprawdź zgodność planu miejscowego z POG</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <widget class="QPushButton" name="pb_pog_to_xslx">
@@ -2097,6 +2124,64 @@ p, li { white-space: pre-wrap; }
             </widget>
            </item>
            <item>
+            <widget class="QLabel" name="label_39">
+             <property name="text">
+              <string>Analiza przebiegu wierzchołków między dwoma warstwami</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QGridLayout" name="gridLayout_7">
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_40">
+               <property name="text">
+                <string>Wybierz warstwę działek</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QgsMapLayerComboBox" name="vertices_strefy_layer"/>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLabel" name="label_41">
+               <property name="text">
+                <string>Wybierz warstwę analizowaną (np. strefy planistyczne)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QgsMapLayerComboBox" name="vertices_dzialki_layer"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QSpinBox" name="vertices_tolerance">
+               <property name="suffix">
+                <string> cm</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QLabel" name="label_42">
+               <property name="text">
+                <string>Ustaw tolerancję w centymetrach</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pb_anal_vertices">
+             <property name="text">
+              <string>Analizuj przebieg wierzchołków</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <spacer name="verticalSpacer_9">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -2131,7 +2216,7 @@ p, li { white-space: pre-wrap; }
          </rect>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_20">
          <attribute name="title">
@@ -2192,9 +2277,46 @@ p, li { white-space: pre-wrap; }
             </widget>
            </item>
            <item>
+            <layout class="QGridLayout" name="gridLayout_4">
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <item row="1" column="0">
+              <widget class="QLineEdit" name="le_pound_column"/>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLineEdit" name="le_pound_text_new"/>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="le_pound_text_old"/>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_34">
+               <property name="text">
+                <string>Wpisz nazwę kolumny</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLabel" name="label_35">
+               <property name="text">
+                <string>Wpisz znak/część tekstu do zamiany</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QLabel" name="label_36">
+               <property name="text">
+                <string>Wpisz nową wartość tekstu</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
             <widget class="QPushButton" name="pb_pg_pound_replace">
              <property name="text">
-              <string>Zamień £ na Ł w tabeli aktywnej warstwy</string>
+              <string>Zamień znaki (np. £ na Ł) w tabeli aktywnej warstwy</string>
              </property>
             </widget>
            </item>
@@ -2423,9 +2545,8 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Open Sans'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Najnowsza aktualizacja (06.05.26) --- dodano dane audytów krajobrazowych.&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;------------------------&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;------------------------&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Najnowsza aktualizacja (07.07.26) --- dodano narzędzia do weryfikacji przebiegu wierzchołków pomiędzy dwoma warstwami (np. działki i strefy planistyczne)&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;-----------------------&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>

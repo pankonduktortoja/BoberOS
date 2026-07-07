@@ -31,6 +31,7 @@ import subprocess
 import tempfile
 import ctypes
 import sys
+import math
 from ctypes import wintypes
 from qgis.core import *
 from qgis.core import QgsVectorLayer, QgsProject, QgsFeatureRequest, QgsVectorFileWriter, QgsGeometry, QgsReadWriteContext, QgsCoordinateTransformContext, QgsWkbTypes, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature, QgsVectorLayerExporter, QgsExpressionContext, QgsExpressionContextUtils, QgsRectangle, QgsMapRendererCustomPainterJob
@@ -242,6 +243,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.pb_anal_pog_flood_buildings: self.anal_pog_flood_buildings,
             self.pb_anal_pog_all_buildings: self.anal_pog_all_buildings,
             self.pb_anal_pdf_report: self.anal_pdf_report,
+            self.pb_anal_vertices: self.anal_vertices,
             
             #GPKG MANAGER BUTTONS
             self.pb_gpkg_load_layers: self.load_layers,
@@ -309,6 +311,12 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             
         #TREEVIEWS + MODELS
         self.fs_model = QFileSystemModel(self)
+        self.fs_model.setFilter(
+            QDir.AllDirs |
+            QDir.Files |
+            QDir.NoDotAndDotDot)
+        self.fs_model.setNameFilters(["*.shp"])
+        self.fs_model.setNameFilterDisables(False)
         self.fs_model.setRootPath(QDir.rootPath())
         map_path = os.path.join(self.resource_path.filePath(), "DANE_MAPY_ZASADNICZE")
         self.tv_pg_import.setModel(self.fs_model)
@@ -4115,8 +4123,13 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             self.report("Warstwa nie pochodzi z bazy Postgres.")
             return
 
-        field_name = "Text"
-        if field_name not in [f.name() for f in layer.fields()]:
+        field_name = self.le_pound_column.text().strip()
+        old_text = self.le_pound_text_old.text()
+        new_text = self.le_pound_text_new.text()
+
+        available_fields = [f.name() for f in layer.fields()]
+
+        if field_name not in available_fields:
             self.report(f"Kolumna '{field_name}' nie istnieje w warstwie.")
             return
 
@@ -4140,17 +4153,29 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             )
             conn.autocommit = True
             cur = conn.cursor()
-            cur.execute(f"""
-                UPDATE "{schema}"."{table}"
-                SET "{field_name}" = REPLACE("{field_name}", '£', 'Ł')
-                WHERE "{field_name}" LIKE '%£%';
-            """)
+
+            cur.execute(
+                f'''
+                    UPDATE "{schema}"."{table}"
+                    SET "{field_name}" = REPLACE("{field_name}", %s, %s)
+                    WHERE "{field_name}" LIKE %s;
+                ''',
+                (old_text, new_text, f"%{old_text}%")
+            )
+
             affected = cur.rowcount
             cur.close()
             conn.close()
-            self.report(f"Zaktualizowano {affected} rekordów w kolumnie '{field_name}'.")
+
+            self.report(
+                f"Zaktualizowano {affected} rekordów w kolumnie '{field_name}'."
+            )
+
         except Exception as e:
-            self.report(f"Błąd przy aktualizacji kolumny '{field_name}': {str(e)}")
+            self.report(
+                f"Błąd przy aktualizacji kolumny '{field_name}': {str(e)}"
+            )
+
         self.show_static()
 
     def update_style_filter(self, layer):
@@ -4630,6 +4655,184 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         else:
             QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
         self.report(f"Zapisano raport PDF do: {path}")
+        self.show_static()
+
+    def anal_vertices(self):
+        self.show_gif()
+        tolerance = self.vertices_tolerance.value() / 100
+        dzialki_layer = self.vertices_dzialki_layer.currentLayer()
+        strefy_layer = self.vertices_strefy_layer.currentLayer()
+        strefy_layer = processing.run(
+            "native:polygonstolines",
+            {
+                "INPUT": strefy_layer,
+                "OUTPUT": "memory:"
+            }
+        )["OUTPUT"]
+
+        crs = dzialki_layer.crs()
+
+        result = QgsVectorLayer(
+            "Point?crs={}".format(crs.authid()),
+            "Brakujące_wierzchołki",
+            "memory"
+        )
+
+        provider = result.dataProvider()
+
+        provider.addAttributes([
+            QgsField("dist", QVariant.Double)
+        ])
+
+        result.updateFields()
+
+        segment_index = QgsSpatialIndex()
+
+        segments = {}
+        vertices = []
+
+        seg_id = 0
+
+        for feat in strefy_layer.getFeatures():
+
+            geom = feat.geometry()
+
+            if geom.isMultipart():
+                lines = geom.asMultiPolyline()
+            else:
+                lines = [geom.asPolyline()]
+
+            for line in lines:
+
+                if len(line) < 2:
+                    continue
+
+                for i in range(len(line)-1):
+
+                    p1 = QgsPointXY(line[i])
+                    p2 = QgsPointXY(line[i+1])
+
+                    segments[seg_id] = (p1,p2)
+
+                    rect = QgsRectangle(
+                        min(p1.x(),p2.x()),
+                        min(p1.y(),p2.y()),
+                        max(p1.x(),p2.x()),
+                        max(p1.y(),p2.y())
+                    )
+
+                    f = QgsFeature()
+                    f.setId(seg_id)
+                    f.setGeometry(QgsGeometry.fromRect(rect))
+
+                    segment_index.addFeature(f)
+
+                    seg_id += 1
+
+                for p in line:
+                    vertices.append(QgsPointXY(p))
+
+        vertex_index = QgsSpatialIndex()
+
+        vertex_geoms = {}
+
+        for i,p in enumerate(vertices):
+
+            f = QgsFeature()
+            f.setId(i)
+            f.setGeometry(QgsGeometry.fromPointXY(p))
+
+            vertex_index.addFeature(f)
+            vertex_geoms[i] = p
+
+        added = set()
+
+        for feat in dzialki_layer.getFeatures():
+
+            geom = feat.geometry()
+
+            if geom.isMultipart():
+                polys = geom.asMultiPolygon()
+            else:
+                polys = [geom.asPolygon()]
+
+            for poly in polys:
+
+                for ring in poly:
+
+                    for pt in ring:
+
+                        p = QgsPointXY(pt)
+
+                        search = QgsRectangle(
+                            p.x()-tolerance,
+                            p.y()-tolerance,
+                            p.x()+tolerance,
+                            p.y()+tolerance
+                        )
+
+                        candidate_segments = segment_index.intersects(search)
+
+                        if len(candidate_segments)==0:
+                            continue
+
+                        best_dist = 999999
+                        best_seg = None
+
+                        for sid in candidate_segments:
+
+                            a,b = segments[sid]
+
+                            line = QgsGeometry.fromPolylineXY([a,b])
+
+                            d = line.distance(QgsGeometry.fromPointXY(p))
+
+                            if d < best_dist:
+                                best_dist = d
+                                best_seg = sid
+
+                        if best_dist > tolerance:
+                            continue
+
+                        nearest = vertex_index.nearestNeighbor(p,1)
+
+                        has_vertex = False
+
+                        if nearest:
+
+                            vp = vertex_geoms[nearest[0]]
+
+                            d = math.hypot(
+                                vp.x()-p.x(),
+                                vp.y()-p.y()
+                            )
+
+                            if d <= tolerance:
+                                has_vertex = True
+
+                        if has_vertex:
+                            continue
+
+                        key = (
+                            round(p.x(),3),
+                            round(p.y(),3)
+                        )
+
+                        if key in added:
+                            continue
+
+                        vertices_number = result.featureCount()
+                        added.add(key)
+
+                        out = QgsFeature(result.fields())
+                        out.setGeometry(QgsGeometry.fromPointXY(p))
+                        out["dist"] = round(best_dist,3)
+
+                        provider.addFeature(out)
+
+        result.updateExtents()
+        QgsProject.instance().addMapLayer(result)
+        self.report(f"Dodano {vertices_number} brakujących wierzchołków.")
         self.show_static()
 
 
