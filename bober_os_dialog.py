@@ -24,9 +24,11 @@ import os
 import time
 import re
 import shutil
+import json
 import sqlite3
 import processing
 import psycopg2
+import psycopg2.extras
 import subprocess
 import tempfile
 import ctypes
@@ -48,6 +50,7 @@ from pathlib import Path
 from qgis.gui import *
 from datetime import datetime
 from qgis.utils import iface
+from psycopg2 import sql
 
 
 
@@ -315,7 +318,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
             QDir.AllDirs |
             QDir.Files |
             QDir.NoDotAndDotDot)
-        self.fs_model.setNameFilters(["*.shp"])
+        self.fs_model.setNameFilters(["*.shp", "*.gml"])
         self.fs_model.setNameFilterDisables(False)
         self.fs_model.setRootPath(QDir.rootPath())
         map_path = os.path.join(self.resource_path.filePath(), "DANE_MAPY_ZASADNICZE")
@@ -3619,6 +3622,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def load_pg_tree(self):
         self.show_gif()
+
         user = self.le_pg_username.text()
         password = self.le_pg_password.text()
         host = "localhost"
@@ -3632,11 +3636,20 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 host=host,
                 port=port
             )
+
             cur = conn.cursor()
-            cur.execute("SELECT datname FROM pg_database WHERE datistemplate = false;")
+
+            cur.execute("""
+                SELECT datname
+                FROM pg_database
+                WHERE datistemplate = false;
+            """)
+
             db_list = [row[0] for row in cur.fetchall()]
+
             cur.close()
             conn.close()
+
         except Exception as e:
             QMessageBox.critical(self, "Connection Error", str(e))
             return
@@ -3645,6 +3658,7 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         model.setHorizontalHeaderLabels(["PostgreSQL"])
 
         for db_name in db_list:
+
             db_item = QStandardItem(db_name)
             db_item.setEditable(False)
 
@@ -3656,28 +3670,36 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                     host=host,
                     port=port
                 )
+
                 cur_db = conn_db.cursor()
+
                 cur_db.execute("""
                     SELECT schema_name
                     FROM information_schema.schemata
-                    WHERE schema_name NOT IN ('pg_catalog','information_schema');
+                    WHERE schema_name NOT IN ('pg_catalog', 'information_schema');
                 """)
+
                 schemas = [r[0] for r in cur_db.fetchall()]
 
                 for schema in schemas:
+
                     schema_item = QStandardItem(schema)
                     schema_item.setEditable(False)
 
                     cur_db.execute("""
                         SELECT table_name
                         FROM information_schema.tables
-                        WHERE table_schema = %s;
+                        WHERE table_schema = %s
+                        ORDER BY table_name;
                     """, (schema,))
+
                     tables = [t[0] for t in cur_db.fetchall()]
 
                     for table in tables:
+
                         table_item = QStandardItem(table)
                         table_item.setEditable(False)
+
                         schema_item.appendRow(table_item)
 
                     db_item.appendRow(schema_item)
@@ -3686,11 +3708,14 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 conn_db.close()
 
             except Exception as e:
-                db_item.appendRow(QStandardItem(f"Error: {str(e)}"))
+                db_item.appendRow(
+                    QStandardItem(f"Error: {str(e)}")
+                )
 
             model.appendRow(db_item)
 
         self.tv_pg_load.setModel(model)
+
         self.report("Przeładowano strukturę bazy danych")
         self.show_static()
 
@@ -3774,37 +3799,280 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def pg_import(self):
         self.show_gif()
+
         idx = self.tv_pg_import.currentIndex()
+
         if not idx.isValid():
             self.report("Nie wybrano pliku.")
+            self.show_static()
             return
 
         path = self.fs_model.filePath(idx)
+        ext = os.path.splitext(path)[1].lower()
 
-        if not path.lower().endswith(".shp"):
-            base = os.path.splitext(path)[0]
-            shp = base + ".shp"
-            if not os.path.exists(shp):
-                self.report("Wybrany plik nie jest warstwą SHP.")
-                return
-            path = shp
-
-        root = os.path.join(self.resource_path.filePath(), "DANE_MAPY_ZASADNICZE")
-        try:
-            rel = os.path.relpath(path, root)
-            db_name, schema_name, fname = rel.split(os.sep)
-            raw_table = os.path.splitext(fname)[0]
-        except Exception:
-            self.report("Błędna struktura katalogów.")
+        if ext not in (".shp", ".gml"):
+            self.report(
+                "Wybrany plik nie jest warstwą SHP ani GML."
+            )
+            self.show_static()
             return
 
-        table_name = re.sub(r"[^a-zA-Z0-9_]", "_", raw_table).lower()[:60]
-        if table_name != raw_table:
-            self.report(f"Zmieniono nazwę tabeli: {raw_table} → {table_name}")
+        root = os.path.join(
+            self.resource_path.filePath(),
+            "DANE_MAPY_ZASADNICZE"
+        )
+
+        try:
+            rel = os.path.relpath(path, root)
+            parts = rel.split(os.sep)
+
+            if len(parts) != 3:
+                raise ValueError
+
+            db_name = parts[0]
+            schema_name = parts[1]
+            fname = parts[2]
+            raw_file_name = os.path.splitext(fname)[0]
+
+        except Exception:
+            self.report("Błędna struktura katalogów.")
+            self.show_static()
+            return
 
         user = self.le_pg_username.text()
         password = self.le_pg_password.text()
         port = self.le_pg_port.text()
+
+        def quote_identifier(name):
+            return '"' + str(name).replace('"', '""') + '"'
+
+        def safe_identifier(name):
+            name = re.sub(
+                r"[^a-zA-Z0-9_]",
+                "_",
+                str(name)
+            )
+
+            if not name:
+                name = "field"
+
+            return name
+
+        def convert_value(value, sql_type):
+            if value is None:
+                return None
+
+            try:
+                if hasattr(value, "isNull") and value.isNull():
+                    return None
+            except Exception:
+                pass
+
+            type_name = type(value).__name__.lower()
+
+            if "qvariant" in type_name:
+                try:
+                    if value.isNull():
+                        return None
+                except Exception:
+                    pass
+
+                try:
+                    converted = value.value()
+
+                    if converted is not value:
+                        return convert_value(
+                            converted,
+                            sql_type
+                        )
+                except Exception:
+                    pass
+
+            if "qstringlist" in type_name:
+                try:
+                    return json.dumps(
+                        [str(x) for x in value.toStringList()],
+                        ensure_ascii=False
+                    )
+                except Exception:
+                    return str(value)
+
+            if "qbytearray" in type_name:
+                try:
+                    return bytes(value)
+                except Exception:
+                    return str(value)
+
+            if (
+                "qdate" in type_name
+                or "qtime" in type_name
+                or "qdatetime" in type_name
+            ):
+                try:
+                    return str(value.toString())
+                except Exception:
+                    return str(value)
+
+            if sql_type == "text":
+                if isinstance(value, str):
+                    return value
+
+                if isinstance(value, (list, tuple)):
+                    try:
+                        return json.dumps(
+                            list(value),
+                            ensure_ascii=False,
+                            default=str
+                        )
+                    except Exception:
+                        return str(value)
+
+                if isinstance(value, dict):
+                    try:
+                        return json.dumps(
+                            value,
+                            ensure_ascii=False,
+                            default=str
+                        )
+                    except Exception:
+                        return str(value)
+
+                try:
+                    return str(value)
+                except Exception:
+                    return None
+
+            if sql_type == "bigint":
+                try:
+                    return int(value)
+                except Exception:
+                    return None
+
+            if sql_type == "double precision":
+                try:
+                    return float(value)
+                except Exception:
+                    return None
+
+            if sql_type == "numeric":
+                try:
+                    return str(value)
+                except Exception:
+                    return None
+
+            if sql_type == "boolean":
+                if isinstance(value, str):
+                    return (
+                        value.strip().lower()
+                        in (
+                            "1",
+                            "true",
+                            "t",
+                            "yes",
+                            "y"
+                        )
+                    )
+
+                try:
+                    return bool(value)
+                except Exception:
+                    return None
+
+            if sql_type == "bytea":
+                try:
+                    return bytes(value)
+                except Exception:
+                    return None
+
+            try:
+                return str(value)
+            except Exception:
+                return None
+
+        def get_sql_type(field):
+            field_type = str(
+                field.typeName()
+            ).lower().strip()
+
+            if "bool" in field_type:
+                return "boolean"
+
+            if (
+                "int" in field_type
+                or "serial" in field_type
+            ):
+                return "bigint"
+
+            if (
+                "double" in field_type
+                or "float" in field_type
+                or "real" in field_type
+            ):
+                return "double precision"
+
+            if (
+                "numeric" in field_type
+                or "decimal" in field_type
+            ):
+                return "numeric"
+
+            if (
+                "byte" in field_type
+                or "binary" in field_type
+            ):
+                return "bytea"
+
+            return "text"
+
+        def geometry_is_usable(geometry):
+            if geometry is None:
+                return False, "brak geometrii"
+
+            try:
+                if geometry.isNull():
+                    return False, "NullGeometry"
+            except Exception:
+                return False, "nie można sprawdzić geometrii"
+
+            try:
+                if geometry.isEmpty():
+                    return False, "pusta geometria"
+            except Exception:
+                return False, "nie można sprawdzić pustej geometrii"
+
+            try:
+                wkb_type = geometry.wkbType()
+            except Exception:
+                return False, "nie można odczytać typu WKB"
+
+            geometry_type = QgsWkbTypes.geometryType(
+                wkb_type
+            )
+
+            if geometry_type == QgsWkbTypes.UnknownGeometry:
+                return False, "UnknownGeometry"
+
+            if geometry_type == QgsWkbTypes.NullGeometry:
+                return False, "NullGeometry"
+
+            try:
+                wkb = geometry.asWkb()
+            except Exception:
+                return False, "nie można utworzyć WKB"
+
+            if not wkb:
+                return False, "pusty WKB"
+
+            try:
+                if not geometry.isGeosValid():
+                    return False, "nieprawidłowa geometria GEOS"
+            except Exception:
+                return False, "nie można zweryfikować geometrii GEOS"
+
+            return True, None
+
+        conn = None
+        cur = None
 
         try:
             conn = psycopg2.connect(
@@ -3814,23 +4082,36 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 password=password,
                 dbname="postgres"
             )
+
             conn.autocommit = True
             cur = conn.cursor()
 
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+            cur.execute(
+                """
+                SELECT 1
+                FROM pg_database
+                WHERE datname = %s
+                """,
+                (db_name,)
+            )
+
             if cur.fetchone():
-                self.report(f"Baza istnieje: {db_name}")
+                self.report(
+                    f"Baza istnieje: {db_name}"
+                )
             else:
-                cur.execute(f'CREATE DATABASE "{db_name}"')
-                self.report(f"Utworzono bazę: {db_name}")
+                cur.execute(
+                    "CREATE DATABASE "
+                    + quote_identifier(db_name)
+                )
+
+                self.report(
+                    f"Utworzono bazę: {db_name}"
+                )
 
             cur.close()
             conn.close()
-        except Exception as e:
-            self.report(str(e))
-            return
 
-        try:
             conn = psycopg2.connect(
                 host="localhost",
                 port=port,
@@ -3838,69 +4119,587 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
                 password=password,
                 dbname=db_name
             )
+
             conn.autocommit = True
             cur = conn.cursor()
 
-            cur.execute("CREATE EXTENSION IF NOT EXISTS postgis")
-            self.report("PostGIS włączony")
-
             cur.execute(
-                "SELECT 1 FROM information_schema.schemata WHERE schema_name = %s",
-                (schema_name,)
+                "CREATE EXTENSION IF NOT EXISTS postgis"
             )
-            if cur.fetchone():
-                self.report(f"Schemat istnieje: {schema_name}")
-            else:
-                cur.execute(f'CREATE SCHEMA "{schema_name}"')
-                self.report(f"Utworzono schemat: {schema_name}")
 
             cur.execute(
                 """
-                SELECT 1 FROM information_schema.tables
-                WHERE table_schema = %s AND table_name = %s
+                SELECT 1
+                FROM information_schema.schemata
+                WHERE schema_name = %s
                 """,
-                (schema_name, table_name)
+                (schema_name,)
             )
-            if cur.fetchone():
-                self.report(f"Pominięto import – tabela istnieje: {schema_name}.{table_name}")
-                cur.close()
-                conn.close()
-                return
 
-            cur.close()
-            conn.close()
+            if cur.fetchone():
+                self.report(
+                    f"Schemat istnieje: {schema_name}"
+                )
+            else:
+                cur.execute(
+                    "CREATE SCHEMA "
+                    + quote_identifier(schema_name)
+                )
+
+                self.report(
+                    f"Utworzono schemat: {schema_name}"
+                )
+
         except Exception as e:
             self.report(str(e))
+
+            try:
+                if cur:
+                    cur.close()
+            except Exception:
+                pass
+
+            try:
+                if conn:
+                    conn.close()
+            except Exception:
+                pass
+
+            self.show_static()
             return
 
-        layer = QgsVectorLayer(path, table_name, "ogr")
-        if not layer.isValid():
-            self.report("Nie można wczytać warstwy SHP.")
-            return
+        layers_to_import = []
+
+        if ext == ".shp":
+            table_name = safe_identifier(
+                raw_file_name
+            ).lower()[:60]
+
+            if table_name != raw_file_name:
+                self.report(
+                    f"Zmieniono nazwę tabeli: "
+                    f"{raw_file_name} → {table_name}"
+                )
+
+            layers_to_import.append(
+                {
+                    "layer_name": raw_file_name,
+                    "table_name": table_name,
+                    "uri": path
+                }
+            )
+
+        else:
+            try:
+                sublayers = (
+                    QgsProviderRegistry
+                    .instance()
+                    .querySublayers(path)
+                )
+
+            except Exception as e:
+                self.report(
+                    f"Nie można odczytać warstw GML: {e}"
+                )
+
+                try:
+                    cur.close()
+                    conn.close()
+                except Exception:
+                    pass
+
+                self.show_static()
+                return
+
+            if not sublayers:
+                self.report(
+                    "Plik GML nie zawiera żadnych warstw."
+                )
+
+                try:
+                    cur.close()
+                    conn.close()
+                except Exception:
+                    pass
+
+                self.show_static()
+                return
+
+            geometry_names = {
+                QgsWkbTypes.PointGeometry: "point",
+                QgsWkbTypes.LineGeometry: "line",
+                QgsWkbTypes.PolygonGeometry: "polygon"
+            }
+
+            for sublayer in sublayers:
+
+                try:
+                    layer_name = sublayer.name()
+                    layer_uri = sublayer.uri()
+                    wkb_type = sublayer.wkbType()
+
+                except Exception as e:
+                    self.report(
+                        f"Nie można odczytać subwarstwy: {e}"
+                    )
+                    continue
+
+                if not layer_name:
+                    continue
+
+                # Get geometry type directly from the sublayer
+                geometry_type = QgsWkbTypes.geometryType(
+                    wkb_type
+                )
+
+                geometry_name = geometry_names.get(
+                    geometry_type,
+                    "unknown"
+                )
+
+                raw_table = (
+                    f"{raw_file_name}_{layer_name}"
+                )
+
+                base_name = safe_identifier(
+                    raw_table
+                ).lower()
+
+                suffix = f"_{geometry_name}"
+
+                table_name = (
+                    base_name[:60 - len(suffix)]
+                    + suffix
+                )
+
+                layers_to_import.append(
+                    {
+                        "layer_name": layer_name,
+                        "table_name": table_name,
+                        "uri": layer_uri
+                    }
+                )
+
+                self.report(
+                    f"Znaleziono warstwę: "
+                    f"{layer_name} "
+                    f"({geometry_name}) → "
+                    f"{table_name}"
+                )
+
+        gml_fields_to_skip = {
+            "gml_id",
+            "lokalnyId",
+            "przestrzenNazw",
+            "wersjaId",
+            "startObiekt",
+            "startWersjaObiekt"
+        }
 
         uri = QgsDataSourceUri()
-        uri.setConnection("localhost", port, db_name, user, password)
-        uri.setDataSource(schema_name, table_name, "geom")
 
-        res = QgsVectorLayerExporter.exportLayer(
-            layer,
-            uri.uri(),
-            "postgres",
-            layer.crs(),
-            False,
-            {"schema": schema_name, "table": table_name, "overwrite": False, "createSpatialIndex": True}
+        uri.setConnection(
+            "localhost",
+            port,
+            db_name,
+            user,
+            password
         )
 
-        if res[0] != QgsVectorLayerExporter.NoError:
-            self.report(res[1])
-            return
+        for item in layers_to_import:
+            layer_name = item["layer_name"]
+            table_name = item["table_name"]
+            layer_uri = item["uri"]
 
-        self.report(f"Zaimportowano: {db_name}.{schema_name}.{table_name}")
+            self.report(
+                f"Przetwarzanie warstwy: {layer_name}"
+            )
+
+            try:
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = %s
+                      AND table_name = %s
+                    """,
+                    (
+                        schema_name,
+                        table_name
+                    )
+                )
+
+                if cur.fetchone():
+                    self.report(
+                        f"Pominięto import – tabela istnieje: "
+                        f"{schema_name}.{table_name}"
+                    )
+                    continue
+
+            except Exception as e:
+                self.report(str(e))
+                continue
+
+            layer = QgsVectorLayer(
+                layer_uri,
+                layer_name,
+                "ogr"
+            )
+
+            if not layer.isValid():
+                self.report(
+                    f"Nie można wczytać warstwy: "
+                    f"{layer_name}"
+                )
+                continue
+
+            if ext == ".shp":
+                try:
+                    uri.setDataSource(
+                        schema_name,
+                        table_name,
+                        "geom"
+                    )
+
+                    export_options = {
+                        "schema": schema_name,
+                        "table": table_name,
+                        "overwrite": False,
+                        "createSpatialIndex": True
+                    }
+
+                    res = (
+                        QgsVectorLayerExporter
+                        .exportLayer(
+                            layer,
+                            uri.uri(),
+                            "postgres",
+                            layer.crs(),
+                            False,
+                            export_options
+                        )
+                    )
+
+                    if (
+                        res[0]
+                        != QgsVectorLayerExporter.NoError
+                    ):
+                        self.report(
+                            f"Błąd importu warstwy "
+                            f"{layer_name}: {res[1]}"
+                        )
+                        continue
+
+                    self.report(
+                        f"Wczytano warstwę: "
+                        f"{db_name}.{schema_name}."
+                        f"{table_name}"
+                    )
+
+                except Exception as e:
+                    self.report(
+                        f"Błąd importu warstwy "
+                        f"{layer_name}: {e}"
+                    )
+
+                    try:
+                        cur.execute(
+                            "DROP TABLE IF EXISTS "
+                            + quote_identifier(schema_name)
+                            + "."
+                            + quote_identifier(table_name)
+                        )
+                    except Exception:
+                        pass
+
+                continue
+
+            source_fields = []
+            field_definitions = []
+            used_names = set()
+
+            for field in layer.fields():
+                original_name = field.name()
+
+                if original_name in gml_fields_to_skip:
+                    continue
+
+                safe_name = safe_identifier(
+                    original_name
+                )
+
+                base_name = safe_name
+                counter = 1
+
+                while safe_name.lower() in used_names:
+                    suffix = f"_{counter}"
+
+                    safe_name = (
+                        base_name[
+                            :60 - len(suffix)
+                        ]
+                        + suffix
+                    )
+
+                    counter += 1
+
+                safe_name = safe_name[:60]
+
+                used_names.add(
+                    safe_name.lower()
+                )
+
+                sql_type = get_sql_type(field)
+
+                source_fields.append(
+                    {
+                        "source_name": original_name,
+                        "target_name": safe_name,
+                        "sql_type": sql_type
+                    }
+                )
+
+                field_definitions.append(
+                    quote_identifier(safe_name)
+                    + " "
+                    + sql_type
+                )
+
+            internal_id = "__qgis_id"
+
+            while internal_id.lower() in used_names:
+                internal_id += "_"
+
+            columns = [
+                quote_identifier(internal_id)
+                + " bigserial PRIMARY KEY"
+            ]
+
+            columns.extend(
+                field_definitions
+            )
+
+            columns.append(
+                quote_identifier("geom")
+                + " geometry"
+            )
+
+            q_schema = quote_identifier(
+                schema_name
+            )
+
+            q_table = quote_identifier(
+                table_name
+            )
+
+            try:
+                srid = layer.crs().postgisSrid()
+
+                if srid < 0:
+                    srid = 0
+
+                cur.execute(
+                    "BEGIN"
+                )
+
+                cur.execute(
+                    "CREATE TABLE "
+                    + q_schema
+                    + "."
+                    + q_table
+                    + " ("
+                    + ", ".join(columns)
+                    + ")"
+                )
+
+                target_fields = [
+                    field["target_name"]
+                    for field in source_fields
+                ]
+
+                quoted_fields = ", ".join(
+                    quote_identifier(name)
+                    for name in target_fields
+                )
+
+                if quoted_fields:
+                    quoted_fields += ", "
+
+                insert_sql = (
+                    "INSERT INTO "
+                    + q_schema
+                    + "."
+                    + q_table
+                    + " ("
+                    + quoted_fields
+                    + quote_identifier("geom")
+                    + ") VALUES %s"
+                )
+
+                value_parts = []
+
+                if source_fields:
+                    value_parts.extend(
+                        ["%s"] * len(source_fields)
+                    )
+
+                value_parts.append(
+                    "ST_SetSRID("
+                    "ST_GeomFromWKB(%s), %s)"
+                )
+
+                value_template = (
+                    "("
+                    + ", ".join(value_parts)
+                    + ")"
+                )
+
+                feature_count = 0
+                batch = []
+
+                for feature in layer.getFeatures():
+                    geometry = feature.geometry()
+
+                    geometry_ok, geometry_error = (
+                        geometry_is_usable(
+                            geometry
+                        )
+                    )
+
+                    if not geometry_ok:
+                        raise ValueError(
+                            f"{geometry_error}, "
+                            f"FID: {feature.id()}"
+                        )
+
+                    values = []
+
+                    for field_info in source_fields:
+                        value = feature[
+                            field_info["source_name"]
+                        ]
+
+                        values.append(
+                            convert_value(
+                                value,
+                                field_info["sql_type"]
+                            )
+                        )
+
+                    values.append(
+                        bytes(
+                            geometry.asWkb()
+                        )
+                    )
+
+                    values.append(
+                        srid
+                    )
+
+                    batch.append(values)
+
+                    if len(batch) >= 2000:
+                        psycopg2.extras.execute_values(
+                            cur,
+                            insert_sql,
+                            batch,
+                            template=value_template,
+                            page_size=2000
+                        )
+
+                        feature_count += len(batch)
+                        batch.clear()
+
+                if batch:
+                    psycopg2.extras.execute_values(
+                        cur,
+                        insert_sql,
+                        batch,
+                        template=value_template,
+                        page_size=2000
+                    )
+
+                    feature_count += len(batch)
+                    batch.clear()
+
+                if feature_count == 0:
+                    raise ValueError(
+                        "warstwa nie zawiera "
+                        "użytecznych obiektów"
+                    )
+
+                cur.execute(
+                    "CREATE INDEX "
+                    + quote_identifier(
+                        table_name + "_geom_idx"
+                    )
+                    + " ON "
+                    + q_schema
+                    + "."
+                    + q_table
+                    + " USING GIST ("
+                    + quote_identifier("geom")
+                    + ")"
+                )
+
+                cur.execute(
+                    "COMMIT"
+                )
+
+                self.report(
+                    f"Wczytano warstwę: "
+                    f"{db_name}.{schema_name}."
+                    f"{table_name} "
+                    f"({feature_count} obiektów)"
+                )
+
+            except Exception as e:
+                try:
+                    cur.execute(
+                        "ROLLBACK"
+                    )
+                except Exception:
+                    pass
+
+                try:
+                    cur.execute(
+                        "DROP TABLE IF EXISTS "
+                        + q_schema
+                        + "."
+                        + q_table
+                    )
+                except Exception:
+                    pass
+
+                try:
+                    cur.execute(
+                        "COMMIT"
+                    )
+                except Exception:
+                    pass
+
+                self.report(
+                    f"Pominięto import warstwy "
+                    f"{layer_name}: {e}"
+                )
+
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+        try:
+            conn.close()
+        except Exception:
+            pass
+
         self.show_static()
 
     def pg_load(self):
         self.show_gif()
+
         idx = self.tv_pg_load.currentIndex()
+
         if not idx.isValid():
             self.report("Nie wybrano warstwy.")
             return
@@ -3909,11 +4708,13 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         item = model.itemFromIndex(idx)
 
         parent_schema = item.parent()
+
         if parent_schema is None:
             self.report("Wybierz tabelę.")
             return
 
         parent_db = parent_schema.parent()
+
         if parent_db is None:
             self.report("Wybierz tabelę.")
             return
@@ -3927,22 +4728,89 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         port = self.le_pg_port.text() or "5432"
 
         uri = QgsDataSourceUri()
-        uri.setConnection("localhost", port, db_name, user, password)
-        uri.setDataSource(schema_name, table_name, "geom")
+        uri.setConnection(
+            "localhost",
+            port,
+            db_name,
+            user,
+            password
+        )
+
+        try:
+            conn = psycopg2.connect(
+                dbname=db_name,
+                user=user,
+                password=password,
+                host="localhost",
+                port=port
+            )
+
+            cur = conn.cursor()
+
+            cur.execute("""
+                SELECT
+                    type
+                FROM geometry_columns
+                WHERE f_table_schema = %s
+                  AND f_table_name = %s
+                  AND f_geometry_column = 'geom';
+            """, (
+                schema_name,
+                table_name
+            ))
+
+            geometry_types = [row[0] for row in cur.fetchall()]
+
+            cur.close()
+            conn.close()
+
+        except Exception:
+            geometry_types = []
+
+        if len(geometry_types) <= 1:
+
+            uri.setDataSource(
+                schema_name,
+                table_name,
+                "geom"
+            )
+
+        else:
+            uri.setDataSource(
+                schema_name,
+                table_name,
+                "geom"
+            )
 
         crs = self.crs_pg_load_widget.crs()
+
         if crs.isValid():
-            layer = QgsVectorLayer(uri.uri(), table_name, "postgres")
+            layer = QgsVectorLayer(
+                uri.uri(),
+                table_name,
+                "postgres"
+            )
             layer.setCrs(crs)
+
         else:
-            layer = QgsVectorLayer(uri.uri(), table_name, "postgres")
+            layer = QgsVectorLayer(
+                uri.uri(),
+                table_name,
+                "postgres"
+            )
 
         if not layer.isValid():
-            self.report("Nie udało się wczytać warstwy z PostGIS.")
+            self.report(
+                "Nie udało się wczytać warstwy z PostGIS."
+            )
             return
 
         QgsProject.instance().addMapLayer(layer)
-        self.report(f"Wczytano warstwę: {db_name}.{schema_name}.{table_name}")
+
+        self.report(
+            f"Wczytano warstwę: "
+            f"{db_name}.{schema_name}.{table_name}"
+        )
 
         qml_dir = os.path.join(
             self.resource_path.filePath(),
@@ -3952,21 +4820,44 @@ class BoberOSDialog(QtWidgets.QDialog, FORM_CLASS):
         )
 
         matched_qml = None
-        for fname in os.listdir(qml_dir):
-            if not fname.lower().endswith(".qml"):
-                continue
-            base = os.path.splitext(fname)[0]
-            sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", base).lower()[:60]
-            if sanitized == table_name:
-                matched_qml = os.path.join(qml_dir, fname)
-                break
+
+        if os.path.exists(qml_dir):
+
+            for fname in os.listdir(qml_dir):
+
+                if not fname.lower().endswith(".qml"):
+                    continue
+
+                base = os.path.splitext(fname)[0]
+
+                sanitized = re.sub(
+                    r"[^a-zA-Z0-9_]",
+                    "_",
+                    base
+                ).lower()[:60]
+
+                if sanitized == table_name:
+                    matched_qml = os.path.join(
+                        qml_dir,
+                        fname
+                    )
+                    break
 
         if matched_qml and os.path.exists(matched_qml):
+
             layer.loadNamedStyle(matched_qml)
             layer.triggerRepaint()
-            self.report(f"Zastosowano styl: {os.path.basename(matched_qml)}")
+
+            self.report(
+                f"Zastosowano styl: "
+                f"{os.path.basename(matched_qml)}"
+            )
+
         else:
-            self.report("Nie znaleziono pasującego pliku QML.")
+            self.report(
+                "Nie znaleziono pasującego pliku QML."
+            )
+
         self.show_static()
 
     def pg_delete(self):
